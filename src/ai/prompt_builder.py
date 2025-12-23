@@ -69,14 +69,15 @@ class PromptBuilder:
             "- Use engaging language",
             "- No hashtags unless natural",
             "- Write in first or second person when appropriate",
-            "- End with a question or call-to-action when natural",
+            "- ALWAYS end with a complete question or call-to-action - this is REQUIRED",
+            "- Ensure the final question/CTA is complete and not cut off",
             "",
             "Examples of allowed formatting:",
             "• Point one",
             "→ Point two",
             "★ Key insight",
             "",
-            "Generate ONLY the post text, nothing else. No quotes, no explanations. NO EMOJIS. MAX 500 CHARACTERS."
+            "Generate ONLY the post text, nothing else. No quotes, no explanations. NO EMOJIS. MAX 500 CHARACTERS. MUST end with a complete question or CTA."
         ])
         
         if brand_voice:
@@ -84,8 +85,7 @@ class PromptBuilder:
         
         return "\n".join(prompt_parts)
     
-    @staticmethod
-    def build_enhanced_prompt(brief: Dict, context: Optional[Dict] = None) -> str:
+    def build_enhanced_prompt(self, brief: Dict, context: Optional[Dict] = None) -> str:
         """
         Build an enhanced prompt with additional context
         
@@ -96,7 +96,7 @@ class PromptBuilder:
         Returns:
             Enhanced prompt string
         """
-        base_prompt = PromptBuilder.build_post_prompt(brief)
+        base_prompt = self.build_post_prompt(brief)
         
         if context:
             context_parts = ["\nAdditional context:"]

@@ -61,11 +61,69 @@ class GPTClient:
 
     def truncate_to_limit(self, text: str, max_chars: int = 500) -> str:
         """
-        Truncate text to max characters, trying to break at word boundaries
+        Truncate text to max characters, preserving the last sentence/question/CTA
         
         Args:
             text: Text to truncate
             max_chars: Maximum characters allowed
+            
+        Returns:
+            Truncated text with preserved CTA/question
+        """
+        if len(text) <= max_chars:
+            return text
+        
+        # Split by lines to find the last line (often contains CTA/question)
+        lines = text.split('\n')
+        
+        # Find the last line that might be a CTA/question
+        last_line = None
+        last_line_index = -1
+        for i in range(len(lines) - 1, -1, -1):
+            line = lines[i].strip()
+            if line and (line.endswith('?') or line.endswith('!') or 
+                        line.lower().startswith('what') or 
+                        line.lower().startswith('how') or
+                        line.lower().startswith('why') or
+                        'share' in line.lower() or
+                        'thoughts' in line.lower()):
+                last_line = line
+                last_line_index = i
+                break
+        
+        # If we found a CTA/question line, try to preserve it
+        if last_line and last_line_index >= 0:
+            # Calculate text before the last line
+            text_before_last_line = '\n'.join(lines[:last_line_index])
+            text_before_length = len(text_before_last_line)
+            last_line_length = len(last_line)
+            
+            # If we can fit the last line, include it
+            if text_before_length + last_line_length + 1 <= max_chars:
+                # We have room for the last line
+                # Truncate the text before if needed
+                if text_before_length + last_line_length + 1 > max_chars:
+                    available_chars = max_chars - last_line_length - 10  # Reserve space for last line + newline
+                    if available_chars > 0:
+                        truncated_before = self._truncate_text_smart(text_before_last_line, available_chars)
+                        return truncated_before + '\n\n' + last_line
+                    else:
+                        # Not enough room, just return the last line if it fits
+                        if last_line_length <= max_chars:
+                            return last_line
+                else:
+                    return text_before_last_line + '\n\n' + last_line
+        
+        # No CTA/question found, use smart truncation
+        return self._truncate_text_smart(text, max_chars)
+    
+    def _truncate_text_smart(self, text: str, max_chars: int) -> str:
+        """
+        Smart truncation that preserves sentence endings
+        
+        Args:
+            text: Text to truncate
+            max_chars: Maximum characters
             
         Returns:
             Truncated text
@@ -73,21 +131,29 @@ class GPTClient:
         if len(text) <= max_chars:
             return text
         
-        # Try to truncate at a word boundary
+        # Look for sentence endings near the limit
         truncated = text[:max_chars]
+        
+        # Find the last sentence ending (., ?, !) within reasonable distance
+        for end_char in ['?', '!', '.']:
+            last_sentence_end = truncated.rfind(end_char)
+            if last_sentence_end > max_chars * 0.7:  # If found reasonably close to limit
+                return text[:last_sentence_end + 1].strip()
+        
+        # No sentence ending found, try word boundary
         last_space = truncated.rfind(' ')
         last_newline = truncated.rfind('\n')
         last_break = max(last_space, last_newline)
         
-        if last_break > max_chars * 0.8:  # If we found a break point reasonably close
-            return truncated[:last_break].strip() + "..."
+        if last_break > max_chars * 0.8:
+            return text[:last_break].strip()
         else:
-            return truncated.strip() + "..."
+            return truncated.strip()
 
     def generate_post(
         self,
         prompt: str,
-        max_tokens: int = 120,  # Reduced from 200 - ~120 tokens ≈ 400-450 chars
+        max_tokens: int = 100,  # Reduced to 100 - ~100 tokens ≈ 350-400 chars (leaves room for CTA)
         temperature: float = 0.7,
     ) -> Optional[str]:
         """
@@ -95,7 +161,7 @@ class GPTClient:
 
         Args:
             prompt: The prompt to send to GPT
-            max_tokens: Maximum tokens for response (default 120 for ~400-450 chars)
+            max_tokens: Maximum tokens for response (default 100 for ~350-400 chars, leaving room for CTA)
             temperature: Creativity level (0.0-2.0, default: 0.7)
         
         Returns:
@@ -108,7 +174,7 @@ class GPTClient:
                     messages=[
                         {
                             "role": "system",
-                            "content": "You are a social media content creator specializing in engaging, authentic Threads posts. NEVER use emojis - only use plain text and simple symbols like bullets (•), arrows (→), and stars (★). Keep posts STRICTLY under 500 characters (aim for 400-450). Be concise and conversational."
+                            "content": "You are a social media content creator specializing in engaging, authentic Threads posts. NEVER use emojis - only use plain text and simple symbols like bullets (•), arrows (→), and stars (★). Keep posts STRICTLY under 500 characters (aim for 400-450). ALWAYS end with a complete question or call-to-action. Be concise and conversational."
                         },
                         {
                             "role": "user",
@@ -128,8 +194,9 @@ class GPTClient:
                 # Remove any emojis that GPT might have used despite instructions
                 generated_text = self.remove_emojis(generated_text)
                 
-                # Safety net: truncate if still over 500 chars
-                generated_text = self.truncate_to_limit(generated_text, max_chars=500)
+                # Safety net: truncate if still over 500 chars, but preserve CTA/question
+                if len(generated_text) > 500:
+                    generated_text = self.truncate_to_limit(generated_text, max_chars=500)
                 
                 return generated_text
                 
