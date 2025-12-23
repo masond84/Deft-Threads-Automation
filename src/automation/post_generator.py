@@ -31,12 +31,13 @@ class PostGenerator:
             debug=True
         )
     
-    def generate_post_for_brief(self, brief: Dict) -> Dict:
+    def generate_post_for_brief(self, brief: Dict, retry_on_length_error: bool = True) -> Dict:
         """
-        Generate a post for a single brief
+        Generate a post for a single brief with retry logic for length errors
         
         Args:
             brief: Brief data from Notion
+            retry_on_length_error: Whether to retry once if post is too long
             
         Returns:
             Dictionary with brief info and generated post
@@ -44,27 +45,61 @@ class PostGenerator:
         # Build prompt from brief
         prompt = self.prompt_builder.build_post_prompt(brief)
         
-        # Generate post
-        print(f"🤖 Generating post for: {brief.get('topic', 'Unknown')}")
-        generated_text = self.gpt_client.generate_post(prompt)
+        max_attempts = 2 if retry_on_length_error else 1
         
-        if not generated_text:
+        for attempt in range(max_attempts):
+            # Generate post
+            if attempt == 0:
+                print(f"🤖 Generating post for: {brief.get('topic', 'Unknown')}")
+            else:
+                print(f"🔄 Retrying generation (attempt {attempt + 1}/{max_attempts})...")
+            
+            generated_text = self.gpt_client.generate_post(prompt)
+            
+            if not generated_text:
+                return {
+                    "brief": brief,
+                    "generated_post": None,
+                    "error": "Failed to generate post",
+                    "valid": False,
+                    "attempts": attempt + 1
+                }
+            
+            # Validate
+            is_valid, error_msg = self.gpt_client.validate_content(generated_text)
+            
+            # If valid, return success
+            if is_valid:
+                return {
+                    "brief": brief,
+                    "generated_post": generated_text,
+                    "error": None,
+                    "valid": True,
+                    "prompt_used": prompt,
+                    "attempts": attempt + 1
+                }
+            
+            # If invalid due to length and we haven't retried yet, retry
+            if retry_on_length_error and "too long" in error_msg.lower() and attempt < max_attempts - 1:
+                continue  # Retry the generation
+            
+            # If invalid for other reasons or we've exhausted retries, return failure
             return {
                 "brief": brief,
-                "generated_post": None,
-                "error": "Failed to generate post",
-                "valid": False
+                "generated_post": generated_text,
+                "error": error_msg,
+                "valid": False,
+                "prompt_used": prompt,
+                "attempts": attempt + 1
             }
         
-        # Validate
-        is_valid, error_msg = self.gpt_client.validate_content(generated_text)
-        
+        # Should never reach here, but just in case
         return {
             "brief": brief,
-            "generated_post": generated_text,
-            "error": error_msg if not is_valid else None,
-            "valid": is_valid,
-            "prompt_used": prompt
+            "generated_post": None,
+            "error": "Failed after all retry attempts",
+            "valid": False,
+            "attempts": max_attempts
         }
     
     def generate_posts_for_briefs(
@@ -93,7 +128,8 @@ class PostGenerator:
             
             if show_progress:
                 if result["valid"]:
-                    print(f"✅ Generated ({len(result['generated_post'])} chars)")
+                    attempts_str = f" (attempt {result.get('attempts', 1)})" if result.get('attempts', 1) > 1 else ""
+                    print(f"✅ Generated ({len(result['generated_post'])} chars){attempts_str}")
                 else:
                     print(f"❌ Failed: {result.get('error', 'Unknown error')}")
         

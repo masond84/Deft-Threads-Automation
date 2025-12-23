@@ -1,5 +1,5 @@
 from typing import Dict, Optional
-
+from utils.symbols import LIST_MARKERS, ALLOWED_SYMBOLS
 class PromptBuilder:
     @staticmethod
     def build_post_prompt(brief: Dict, brand_voice: Optional[str] = None) -> str:
@@ -31,8 +31,12 @@ class PromptBuilder:
         
         prompt_parts.extend([
             "",
-            "Requirements:",
-            "- Keep it under 500 characters",
+            "CRITICAL REQUIREMENTS:",
+            "- NEVER use emojis (🚀, 🤔, 🔒, 👇, etc.) - they are STRICTLY FORBIDDEN",
+            "- Use ONLY plain text and simple symbols for decoration",
+            "- Allowed symbols: • → ➤ ▸ ▪ ★ ✧ ✦ (bullets, arrows, stars only)",
+            "- MAXIMUM 500 characters - aim for 400-450 characters to be safe",
+            "- Be concise and direct - every word counts",
             "- Make it conversational and authentic",
             "- Add value or insight",
             "- Use engaging language",
@@ -40,7 +44,12 @@ class PromptBuilder:
             "- Write in first or second person when appropriate",
             "- End with a question or call-to-action when natural",
             "",
-            "Generate ONLY the post text, nothing else. No quotes, no explanations."
+              "Examples of allowed formatting:",
+            "• Point one",
+            "→ Point two",
+            "★ Key insight",
+            "",
+            "Generate ONLY the post text, nothing else. No quotes, no explanations. NO EMOJIS."
         ])
         
         if brand_voice:

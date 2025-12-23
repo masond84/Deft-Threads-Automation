@@ -1,4 +1,5 @@
 import os
+import re
 from openai import OpenAI
 from dotenv import load_dotenv
 from pathlib import Path
@@ -27,10 +28,66 @@ class GPTClient:
         self.max_retries = 3
         self.retry_delay = 2  # seconds
 
+    def remove_emojis(self, text: str) -> str:
+        """
+        Remove all emojis from text
+        
+        Args:
+            text: Text that may contain emojis
+            
+        Returns:
+            Text with all emojis removed
+        """
+        # Remove emojis using regex
+        # This pattern matches most emoji ranges
+        emoji_pattern = re.compile(
+            "["
+            "\U0001F600-\U0001F64F"  # emoticons
+            "\U0001F300-\U0001F5FF"  # symbols & pictographs
+            "\U0001F680-\U0001F6FF"  # transport & map symbols
+            "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+            "\U00002702-\U000027B0"  # dingbats
+            "\U000024C2-\U0001F251"  # enclosed characters
+            "\U0001F900-\U0001F9FF"  # supplemental symbols
+            "\U0001FA00-\U0001FA6F"  # chess symbols
+            "\U0001FA70-\U0001FAFF"  # symbols and pictographs extended-A
+            "\U00002600-\U000026FF"  # miscellaneous symbols
+            "\U00002700-\U000027BF"  # dingbats
+            "]+",
+            flags=re.UNICODE
+        )
+        
+        return emoji_pattern.sub('', text).strip()
+
+    def truncate_to_limit(self, text: str, max_chars: int = 500) -> str:
+        """
+        Truncate text to max characters, trying to break at word boundaries
+        
+        Args:
+            text: Text to truncate
+            max_chars: Maximum characters allowed
+            
+        Returns:
+            Truncated text
+        """
+        if len(text) <= max_chars:
+            return text
+        
+        # Try to truncate at a word boundary
+        truncated = text[:max_chars]
+        last_space = truncated.rfind(' ')
+        last_newline = truncated.rfind('\n')
+        last_break = max(last_space, last_newline)
+        
+        if last_break > max_chars * 0.8:  # If we found a break point reasonably close
+            return truncated[:last_break].strip() + "..."
+        else:
+            return truncated.strip() + "..."
+
     def generate_post(
         self,
         prompt: str,
-        max_tokens: int = 200,
+        max_tokens: int = 120,  # Reduced from 200 - ~120 tokens ≈ 400-450 chars
         temperature: float = 0.7,
     ) -> Optional[str]:
         """
@@ -38,10 +95,10 @@ class GPTClient:
 
         Args:
             prompt: The prompt to send to GPT
-            max_tokens: Maxiumum tokens for response (default 200 for ~500 chars)
+            max_tokens: Maximum tokens for response (default 120 for ~400-450 chars)
             temperature: Creativity level (0.0-2.0, default: 0.7)
         
-        returns:
+        Returns:
             Generated post text or None if failed
         """
         for attempt in range(self.max_retries):
@@ -51,7 +108,7 @@ class GPTClient:
                     messages=[
                         {
                             "role": "system",
-                            "content": "You are a social media content creator specializing in engaging, authentic Threads posts. Keep posts under 500 characters, conversational, and valuable."
+                            "content": "You are a social media content creator specializing in engaging, authentic Threads posts. NEVER use emojis - only use plain text and simple symbols like bullets (•), arrows (→), and stars (★). Keep posts STRICTLY under 500 characters (aim for 400-450). Be concise and conversational."
                         },
                         {
                             "role": "user",
@@ -67,6 +124,12 @@ class GPTClient:
                 # Remove quotes if GPT wrapped the text
                 if generated_text.startswith('"') and generated_text.endswith('"'):
                     generated_text = generated_text[1:-1]
+                
+                # Remove any emojis that GPT might have used despite instructions
+                generated_text = self.remove_emojis(generated_text)
+                
+                # Safety net: truncate if still over 500 chars
+                generated_text = self.truncate_to_limit(generated_text, max_chars=500)
                 
                 return generated_text
                 
@@ -98,6 +161,27 @@ class GPTClient:
         
         if len(text) < 10:
             return False, "Content too short"
+        
+        # Check for emojis (should not have any)
+        emoji_pattern = re.compile(
+            "["
+            "\U0001F600-\U0001F64F"
+            "\U0001F300-\U0001F5FF"
+            "\U0001F680-\U0001F6FF"
+            "\U0001F1E0-\U0001F1FF"
+            "\U00002702-\U000027B0"
+            "\U000024C2-\U0001F251"
+            "\U0001F900-\U0001F9FF"
+            "\U0001FA00-\U0001FA6F"
+            "\U0001FA70-\U0001FAFF"
+            "\U00002600-\U000026FF"
+            "\U00002700-\U000027BF"
+            "]+",
+            flags=re.UNICODE
+        )
+        
+        if emoji_pattern.search(text):
+            return False, "Content contains emojis (not allowed)"
         
         # Check for common GPT artifacts
         if text.startswith("Here's") and len(text) < 50:
