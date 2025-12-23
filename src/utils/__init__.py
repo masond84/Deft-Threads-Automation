@@ -8,6 +8,7 @@ from .symbols import (
     get_list_marker,
     get_arrow
 )
+from .brand_profile import BrandProfile
 
 __all__ = [
     "BULLETS",
@@ -17,5 +18,6 @@ __all__ = [
     "LIST_MARKERS",
     "ALLOWED_SYMBOLS",
     "get_list_marker",
-    "get_arrow"
+    "get_arrow",
+    "BrandProfile"
 ]

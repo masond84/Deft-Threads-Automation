@@ -1,14 +1,29 @@
 from typing import Dict, Optional
 from utils.symbols import LIST_MARKERS, ALLOWED_SYMBOLS
+
 class PromptBuilder:
-    @staticmethod
-    def build_post_prompt(brief: Dict, brand_voice: Optional[str] = None) -> str:
+    def __init__(self, brand_profile=None):
+        """
+        Initialize prompt builder with brand context
+        
+        Args:
+            brand_profile: BrandProfile instance (optional)
+        """
+        self.brand_profile = brand_profile
+    
+    def build_post_prompt(
+        self, 
+        brief: Dict, 
+        brand_voice: Optional[str] = None,
+        strict_length: bool = False
+    ) -> str:
         """
         Build a prompt for GPT to generate a Threads post from a brief
         
         Args:
             brief: Brief data from Notion (topic, pillar, post_type, etc.)
-            brand_voice: Optional brand voice/style guide
+            brand_voice: Optional brand voice/style guide (overrides brand_profile)
+            strict_length: If True, emphasize length constraint even more
             
         Returns:
             Formatted prompt string
@@ -23,11 +38,23 @@ class PromptBuilder:
             f"Create an engaging Threads post about: {topic}",
         ]
         
+        # Add brand context if available
+        if self.brand_profile and self.brand_profile.is_loaded():
+            brand_context = self.brand_profile.get_context_for_prompt()
+            if brand_context:
+                prompt_parts.append("\nBrand Context:")
+                prompt_parts.append(brand_context)
+        
         if pillar:
-            prompt_parts.append(f"Content pillar: {pillar}")
+            prompt_parts.append(f"\nContent pillar: {pillar}")
         
         if post_type_str and post_type_str != "Text":
             prompt_parts.append(f"Post type: {post_type_str}")
+        
+        # Add extra emphasis on length if strict_length is True
+        length_requirement = "- MAXIMUM 500 characters - aim for 400-450 characters to be safe"
+        if strict_length:
+            length_requirement = "- CRITICAL: MAXIMUM 500 characters - MUST be under 500. Aim for 400-450 characters. Be very concise."
         
         prompt_parts.extend([
             "",
@@ -35,7 +62,7 @@ class PromptBuilder:
             "- NEVER use emojis (🚀, 🤔, 🔒, 👇, etc.) - they are STRICTLY FORBIDDEN",
             "- Use ONLY plain text and simple symbols for decoration",
             "- Allowed symbols: • → ➤ ▸ ▪ ★ ✧ ✦ (bullets, arrows, stars only)",
-            "- MAXIMUM 500 characters - aim for 400-450 characters to be safe",
+            length_requirement,
             "- Be concise and direct - every word counts",
             "- Make it conversational and authentic",
             "- Add value or insight",
@@ -44,12 +71,12 @@ class PromptBuilder:
             "- Write in first or second person when appropriate",
             "- End with a question or call-to-action when natural",
             "",
-              "Examples of allowed formatting:",
+            "Examples of allowed formatting:",
             "• Point one",
             "→ Point two",
             "★ Key insight",
             "",
-            "Generate ONLY the post text, nothing else. No quotes, no explanations. NO EMOJIS."
+            "Generate ONLY the post text, nothing else. No quotes, no explanations. NO EMOJIS. MAX 500 CHARACTERS."
         ])
         
         if brand_voice:

@@ -2,12 +2,32 @@ from typing import List, Dict, Optional
 from ai.gpt_client import GPTClient
 from ai.prompt_builder import PromptBuilder
 from database.notion_client import NotionClient
+from utils.brand_profile import BrandProfile
 
 class PostGenerator:
-    def __init__(self):
+    def __init__(self, use_brand_profile: bool = True):
+        """
+        Initialize post generator
+        
+        Args:
+            use_brand_profile: Load brand profile from config file (default: True)
+        """
         self.gpt_client = GPTClient()
         self.notion_client = NotionClient()
-        self.prompt_builder = PromptBuilder()
+        
+        # Load brand profile
+        brand_profile = None
+        if use_brand_profile:
+            try:
+                brand_profile = BrandProfile()
+                if brand_profile.is_loaded():
+                    print("✅ Loaded brand profile")
+                else:
+                    print("⚠️  Brand profile file not found - using default prompts")
+            except Exception as e:
+                print(f"⚠️  Could not load brand profile: {e}")
+        
+        self.prompt_builder = PromptBuilder(brand_profile=brand_profile)
     
     def fetch_briefs(
         self, 
@@ -42,17 +62,18 @@ class PostGenerator:
         Returns:
             Dictionary with brief info and generated post
         """
-        # Build prompt from brief
-        prompt = self.prompt_builder.build_post_prompt(brief)
-        
         max_attempts = 2 if retry_on_length_error else 1
         
         for attempt in range(max_attempts):
+            # Build prompt - use stricter length requirement on retry
+            strict_length = (attempt > 0)  # Stricter on retry attempts
+            prompt = self.prompt_builder.build_post_prompt(brief, strict_length=strict_length)
+            
             # Generate post
             if attempt == 0:
                 print(f"🤖 Generating post for: {brief.get('topic', 'Unknown')}")
             else:
-                print(f"🔄 Retrying generation (attempt {attempt + 1}/{max_attempts})...")
+                print(f"🔄 Retrying generation with stricter length requirements (attempt {attempt + 1}/{max_attempts})...")
             
             generated_text = self.gpt_client.generate_post(prompt)
             
