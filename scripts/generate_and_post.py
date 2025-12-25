@@ -40,6 +40,53 @@ def display_preview(results: list):
     
     print(f"\n✅ Summary: {len(valid_posts)} posts generated, {len(invalid_posts)} failed")
     print("\n" + "="*70)
+    
+    return valid_posts
+
+def get_approval(valid_posts: list) -> list:
+    """
+    Get user approval for posts
+    
+    Args:
+        valid_posts: List of valid post results
+        
+    Returns:
+        List of approved posts to post
+    """
+    if not valid_posts:
+        return []
+    
+    print("\n" + "="*70)
+    print("📝 POST APPROVAL")
+    print("="*70 + "\n")
+    print("Review the posts above and approve which ones to post.\n")
+    
+    approved = []
+    
+    for i, result in enumerate(valid_posts, 1):
+        brief = result["brief"]
+        post = result["generated_post"]
+        
+        print(f"\nPost #{i}: {brief.get('topic', 'Unknown')}")
+        print(f"Preview: {post[:100]}...")
+        
+        while True:
+            response = input(f"\nApprove Post #{i}? (y/n/skip): ").strip().lower()
+            
+            if response in ['y', 'yes']:
+                approved.append(result)
+                print("✅ Approved")
+                break
+            elif response in ['n', 'no']:
+                print("❌ Rejected")
+                break
+            elif response in ['s', 'skip']:
+                print("⏭️  Skipped")
+                break
+            else:
+                print("Please enter 'y' (yes), 'n' (no), or 's' (skip)")
+    
+    return approved
 
 def main():
     import argparse
@@ -56,6 +103,17 @@ def main():
         type=str,
         default=None,
         help="Filter briefs by status (e.g., 'Ready')"
+    )
+    parser.add_argument(
+        "--auto-approve",
+        action="store_true",
+        help="Automatically approve all generated posts (use with caution!)"
+    )
+    parser.add_argument(
+        "--post-delay",
+        type=int,
+        default=60,
+        help="Delay between posts in seconds (default: 60)"
     )
     
     args = parser.parse_args()
@@ -81,11 +139,63 @@ def main():
         results = generator.generate_posts_for_briefs(briefs)
         
         # Step 3: Show preview
-        display_preview(results)
+        valid_posts = display_preview(results)
         
-        # Note: Posting and Notion updates will be added in next step
-        print("\n💡 Next: Review posts above, then approve for posting")
-        print("   (Posting functionality coming next)")
+        if not valid_posts:
+            print("\n❌ No valid posts to approve")
+            return
+        
+        # Step 4: Get approval
+        if args.auto_approve:
+            print("\n⚠️  AUTO-APPROVE MODE: All posts will be posted automatically")
+            approved = valid_posts
+        else:
+            approved = get_approval(valid_posts)
+        
+        if not approved:
+            print("\n⏭️  No posts approved. Exiting.")
+            return
+        
+        # Step 5: Confirm before posting
+        print(f"\n📤 Ready to post {len(approved)} approved post(s)")
+        if not args.auto_approve:
+            confirm = input("Proceed with posting? (yes/no): ").strip().lower()
+            if confirm not in ['yes', 'y']:
+                print("❌ Posting cancelled")
+                return
+        
+        # Step 6: Post approved content
+        print("\n🚀 Posting to Threads...")
+        posting_results = generator.post_multiple_approved(
+            approved,
+            delay_seconds=args.post_delay
+        )
+        
+        # Step 7: Summary
+        successful = [r for r in posting_results if r.get("success")]
+        failed = [r for r in posting_results if not r.get("success")]
+        
+        print("\n" + "="*70)
+        print("📊 POSTING SUMMARY")
+        print("="*70)
+        print(f"✅ Successfully posted: {len(successful)}")
+        print(f"❌ Failed: {len(failed)}")
+        
+        if successful:
+            print("\n✅ Posted Threads:")
+            for result in successful:
+                brief = result["result"]["brief"]
+                thread_url = result.get("thread_url", "N/A")
+                print(f"  • {brief.get('topic', 'Unknown')}: {thread_url}")
+        
+        if failed:
+            print("\n❌ Failed Posts:")
+            for result in failed:
+                brief = result["result"]["brief"]
+                error = result.get("error", "Unknown error")
+                print(f"  • {brief.get('topic', 'Unknown')}: {error}")
+        
+        print("\n" + "="*70)
         
     except Exception as e:
         print(f"❌ Error: {e}")

@@ -3,6 +3,7 @@ from ai.gpt_client import GPTClient
 from ai.prompt_builder import PromptBuilder
 from database.notion_client import NotionClient
 from utils.brand_profile import BrandProfile
+from api.threads_api import ThreadsAPI
 
 class PostGenerator:
     def __init__(self, use_brand_profile: bool = True):
@@ -14,6 +15,7 @@ class PostGenerator:
         """
         self.gpt_client = GPTClient()
         self.notion_client = NotionClient()
+        self.threads_api = ThreadsAPI()  # Add Threads API for posting
         
         # Load brand profile
         brand_profile = None
@@ -155,3 +157,78 @@ class PostGenerator:
                     print(f"❌ Failed: {result.get('error', 'Unknown error')}")
         
         return results
+    
+    def post_approved_post(self, result: Dict) -> Dict:
+        """
+        Post an approved generated post to Threads
+        
+        Args:
+            result: Result dictionary from generate_post_for_brief
+            
+        Returns:
+            Dictionary with posting result
+        """
+        if not result.get("valid") or not result.get("generated_post"):
+            return {
+                "success": False,
+                "error": "Post is not valid or missing",
+                "result": result
+            }
+        
+        post_text = result["generated_post"]
+        brief = result["brief"]
+        
+        print(f"📤 Posting to Threads: {brief.get('topic', 'Unknown')}")
+        
+        # Post to Threads
+        post_result = self.threads_api.post_thread(post_text, auto_publish=True)
+        
+        if post_result:
+            thread_id = post_result.get('id') or post_result.get('thread_id')
+            return {
+                "success": True,
+                "thread_id": thread_id,
+                "thread_url": f"https://www.threads.net/t/{thread_id}/" if thread_id else None,
+                "result": result
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Failed to post to Threads",
+                "result": result
+            }
+    
+    def post_multiple_approved(self, results: List[Dict], delay_seconds: int = 60) -> List[Dict]:
+        """
+        Post multiple approved posts with delay between each
+        
+        Args:
+            results: List of result dictionaries to post
+            delay_seconds: Delay between posts (default: 60 seconds)
+            
+        Returns:
+            List of posting results
+        """
+        import time
+        
+        posting_results = []
+        valid_posts = [r for r in results if r.get("valid")]
+        
+        for i, result in enumerate(valid_posts, 1):
+            print(f"\n[{i}/{len(valid_posts)}] Posting...")
+            post_result = self.post_approved_post(result)
+            posting_results.append(post_result)
+            
+            if post_result["success"]:
+                print(f"✅ Posted successfully!")
+                if post_result.get("thread_url"):
+                    print(f"   View at: {post_result['thread_url']}")
+            else:
+                print(f"❌ Failed to post: {post_result.get('error', 'Unknown error')}")
+            
+            # Wait before next post (except for last one)
+            if i < len(valid_posts):
+                print(f"⏳ Waiting {delay_seconds} seconds before next post...")
+                time.sleep(delay_seconds)
+        
+        return posting_results
