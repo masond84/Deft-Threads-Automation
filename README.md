@@ -106,4 +106,4 @@ python scripts/generate_long_term_key.pyEnter your short-lived token when prompt
 ### Test Individual Components
 
 # Test posting a single thread
-python scripts/post_thread.py "Your post text here"## 📁 Project Structure
+python scripts/post_thread.py "Your post text here"## Project Structure
