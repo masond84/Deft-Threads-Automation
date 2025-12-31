@@ -210,12 +210,13 @@ class GPTClient:
         
         return None
     
-    def validate_content(self, text: str) -> tuple[bool, str]:
+    def validate_content(self, text: str, max_length: int = 500) -> tuple[bool, str]:
         """
         Validate generated content
         
         Args:
             text: The generated text to validate
+            max_length: Maximum allowed length (default: 500)
             
         Returns:
             Tuple of (is_valid, error_message)
@@ -223,8 +224,8 @@ class GPTClient:
         if not text or not text.strip():
             return False, "Content is empty"
         
-        if len(text) > 500:
-            return False, f"Content too long ({len(text)} chars, max 500)"
+        if len(text) > max_length:
+            return False, f"Content too long ({len(text)} chars, max {max_length})"
         
         if len(text) < 10:
             return False, "Content too short"

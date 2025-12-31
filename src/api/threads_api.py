@@ -1,7 +1,7 @@
 import os
 import requests
 from dotenv import load_dotenv
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from pathlib import Path
 
 project_root = Path(__file__).parent.parent.parent
@@ -50,7 +50,83 @@ class ThreadsAPI:
             print(f"Error getting user info: {response.status_code}")
             print(f"Response: {response.text}")
             return None
-    
+
+    def get_user_threads(self, limit: int = 25) -> Optional[List[Dict]]:
+        """
+        Fetch the authenticated user's recent threads with pagination support
+        
+        Args:
+            limit: Maximum number of threads to fetch (default: 25)
+            
+        Returns:
+            List of thread dictionaries with text content, or None if failed
+        """
+        user_id = self.get_user_id()
+        if not user_id:
+            print("❌ Could not get user ID")
+            return None
+        
+        url = f"{self.base_url}/{user_id}/threads"
+        all_threads = []
+        
+        params = {
+            "fields": "id,text,thread_id,timestamp",
+            "limit": min(limit, 100)  # API might have max limit per request
+        }
+        
+        try:
+            while len(all_threads) < limit:
+                response = requests.get(url, headers=self._get_headers(), params=params)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    threads = data.get("data", [])
+                    
+                    if not threads:
+                        break  # No more posts available
+                    
+                    all_threads.extend(threads)
+                    
+                    # Check for pagination
+                    paging = data.get("paging", {})
+                    next_cursor = paging.get("cursors", {}).get("after")
+                    
+                    if next_cursor and len(all_threads) < limit:
+                        params["after"] = next_cursor
+                    else:
+                        break  # No more pages or reached limit
+                else:
+                    if len(all_threads) == 0:
+                        # First request failed
+                        print(f"❌ Error fetching threads: {response.status_code}")
+                        print(f"Response: {response.text}")
+                        
+                        if response.status_code == 403:
+                            print("💡 Tip: You may need 'threads_basic' permission in your access token")
+                        elif response.status_code == 404:
+                            print("💡 Tip: This endpoint may not be available in the current API version")
+                        
+                        return None
+                    else:
+                        # Partial success - return what we have
+                        print(f"⚠️  Pagination stopped at {len(all_threads)} posts")
+                        break
+            
+            # Trim to exact limit if needed
+            if len(all_threads) > limit:
+                all_threads = all_threads[:limit]
+            
+            if all_threads:
+                print(f"✅ Fetched {len(all_threads)} posts from Threads")
+            else:
+                print(f"⚠️  No posts found")
+            
+            return all_threads
+            
+        except Exception as e:
+            print(f"❌ Exception while fetching threads: {e}")
+            return None if len(all_threads) == 0 else all_threads
+
     def post_thread(self, text: str, auto_publish: bool = True) -> Optional[Dict]:
         """
         Post a text thread to Threads
