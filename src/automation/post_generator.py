@@ -165,7 +165,7 @@ class PostGenerator:
         Post an approved generated post to Threads
         
         Args:
-            result: Result dictionary from generate_post_for_brief
+            result: Result dictionary from generate_post_for_brief or generate_post_from_analysis
             
         Returns:
             Dictionary with posting result
@@ -178,9 +178,14 @@ class PostGenerator:
             }
         
         post_text = result["generated_post"]
-        brief = result["brief"]
         
-        print(f"📤 Posting to Threads: {brief.get('topic', 'Unknown')}")
+        # Handle both brief-based and analysis-based results
+        if "brief" in result:
+            topic = result["brief"].get('topic', 'Unknown')
+        else:
+            topic = "Analysis-based post"
+        
+        print(f"📤 Posting to Threads: {topic}")
         
         # Post to Threads
         post_result = self.threads_api.post_thread(post_text, auto_publish=True)
@@ -199,7 +204,7 @@ class PostGenerator:
                 "error": "Failed to post to Threads",
                 "result": result
             }
-    
+        
     def post_multiple_approved(self, results: List[Dict], delay_seconds: int = 60) -> List[Dict]:
         """
         Post multiple approved posts with delay between each
@@ -337,5 +342,80 @@ class PostGenerator:
             "error": "Failed after all retry attempts",
             "valid": False,
             "analysis": analysis,
+            "attempts": max_attempts
+        }
+
+    def generate_connection_post(
+        self,
+        connection_type: Optional[str] = None,
+        retry_on_length_error: bool = True
+    ) -> Dict:
+        """
+        Generate a short, casual networking/connection post (Path C)
+        
+        Args:
+            connection_type: Optional specific type to connect with (e.g., "founders", "developers")
+            retry_on_length_error: Whether to retry once if post is too long
+            
+        Returns:
+            Dictionary with generated post
+        """
+        max_attempts = 2 if retry_on_length_error else 1
+        
+        for attempt in range(max_attempts):
+            strict_length = (attempt > 0)
+            prompt = self.prompt_builder.build_connection_prompt(
+                connection_type=connection_type,
+                strict_length=strict_length
+            )
+            
+            if attempt == 0:
+                print(f"🤖 Generating connection post{' for: ' + connection_type if connection_type else ''}...")
+            else:
+                print(f"🔄 Retrying generation with stricter length requirements (attempt {attempt + 1}/{max_attempts})...")
+            
+            generated_text = self.gpt_client.generate_post(prompt, max_tokens=50)  # Shorter for connection posts
+            
+            if not generated_text:
+                return {
+                    "generated_post": None,
+                    "error": "Failed to generate post",
+                    "valid": False,
+                    "attempts": attempt + 1,
+                    "type": "connection"
+                }
+            
+            # Validate (with shorter max length for connection posts)
+            is_valid, error_msg = self.gpt_client.validate_content(generated_text, max_length=200)
+            
+            if is_valid:
+                return {
+                    "generated_post": generated_text,
+                    "error": None,
+                    "valid": True,
+                    "prompt_used": prompt,
+                    "attempts": attempt + 1,
+                    "type": "connection",
+                    "connection_type": connection_type
+                }
+            
+            # If invalid due to length and we haven't retried yet, retry
+            if retry_on_length_error and "too long" in error_msg.lower() and attempt < max_attempts - 1:
+                continue
+            
+            return {
+                "generated_post": generated_text,
+                "error": error_msg,
+                "valid": False,
+                "prompt_used": prompt,
+                "attempts": attempt + 1,
+                "type": "connection"
+            }
+        
+        return {
+            "generated_post": None,
+            "error": "Failed after all retry attempts",
+            "valid": False,
+            "type": "connection",
             "attempts": max_attempts
         }
