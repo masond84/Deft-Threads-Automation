@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approve Post</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Review Post</h1>
+            <a href="/" class="back-link">← Back to all posts</a>
+        </header>
+
+        <div id="loading" class="loading">Loading post...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div id="post-container" class="post-detail" style="display: none;">
+            <!-- Post details will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const postId = window.location.pathname.split('/').pop();
+        const urlParams = new URLSearchParams(window.location.search);
+        const action = urlParams.get('action'); // 'approve' or 'reject'
+
+        async function loadPost() {
+            try {
+                const response = await fetch(`${API_BASE}/api/posts/${postId}`);
+                const post = await response.json();
+                
+                document.getElementById('loading').style.display = 'none';
+                
+                // Show status message only for published or rejected posts
+                // Approved and pending posts should show action buttons
+                if (post.status === 'published' || post.status === 'rejected') {
+                    showStatus(post);
+                    return;
+                }
+                
+                // For pending or approved posts, show the post with action buttons
+                displayPost(post);
+                
+                // Auto-approve/reject if action parameter is set (only for pending posts)
+                if (post.status === 'pending') {
+                    if (action === 'approve') {
+                        await approvePost();
+                    } else if (action === 'reject') {
+                        await rejectPost();
+                    }
+                }
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = `Error loading post: ${error.message}`;
+            }
+        }
+
+        function displayPost(post) {
+            const container = document.getElementById('post-container');
+            container.style.display = 'block';
+            
+            const modeLabel = post.mode.charAt(0).toUpperCase() + post.mode.slice(1);
+            const createdDate = new Date(post.created_at).toLocaleString();
+            
+            let actionButtons = '';
+            if (post.status === 'pending') {
+                actionButtons = `
+                    <button onclick="approvePost()" class="btn btn-approve">✓ Approve</button>
+                    <button onclick="rejectPost()" class="btn btn-reject">✗ Reject</button>
+                `;
+            } else if (post.status === 'approved') {
+                actionButtons = `
+                    <button onclick="publishPost()" class="btn btn-approve">📤 Publish to Threads</button>
+                    <button onclick="rejectPost()" class="btn btn-reject">✗ Reject</button>
+                `;
+            }
+            
+            container.innerHTML = `
+                <div class="post-card post-detail-card">
+                    <div class="post-header">
+                        <span class="mode-badge mode-${post.mode}">${modeLabel}</span>
+                        ${post.status === 'approved' ? '<span class="status-badge status-approved">APPROVED</span>' : ''}
+                        <span class="date">${createdDate}</span>
+                    </div>
+                    <div class="post-content">
+                        <p class="post-text">${escapeHtml(post.post_text)}</p>
+                        <div class="post-meta">
+                            <span class="char-count">${post.post_text.length} characters</span>
+                        </div>
+                    </div>
+                    <div class="post-actions">
+                        ${actionButtons}
+                    </div>
+                </div>
+            `;
+        }
+
+        function showStatus(post) {
+            const container = document.getElementById('post-container');
+            container.style.display = 'block';
+            
+            let statusMessage = '';
+            let statusClass = '';
+            
+            if (post.status === 'approved') {
+                statusMessage = 'This post has been approved.';
+                statusClass = 'status-approved';
+            } else if (post.status === 'rejected') {
+                statusMessage = 'This post has been rejected.';
+                statusClass = 'status-rejected';
+            } else if (post.status === 'published') {
+                statusMessage = 'This post has been published!';
+                statusClass = 'status-published';
+                if (post.thread_url) {
+                    statusMessage += ` <a href="${post.thread_url}" target="_blank">View on Threads</a>`;
+                }
+            }
+            
+            container.innerHTML = `
+                <div class="post-card ${statusClass}">
+                    <div class="status-message">
+                        <h2>${statusMessage}</h2>
+                        <a href="/" class="btn btn-primary">View All Posts</a>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function approvePost() {
+            try {
+                const response = await fetch(`${API_BASE}/api/posts/${postId}/approve`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                    throw new Error(errorData.detail || 'Failed to approve post');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Show approval success, then try to publish
+                    const statusDiv = document.createElement('div');
+                    statusDiv.className = 'status-message status-success';
+                    statusDiv.textContent = '✅ Post approved. Publishing to Threads...';
+                    document.getElementById('post-container').prepend(statusDiv);
+                    
+                    // Try to publish
+                    try {
+                        await publishPost();
+                    } catch (publishError) {
+                        // If publish fails, reload post to show it's still approved
+                        statusDiv.className = 'status-message status-error';
+                        statusDiv.textContent = `⚠️ Post approved but publishing failed: ${publishError.message}. Post is still available for retry.`;
+                        loadPost(); // Reload to show approved status
+                    }
+                } else {
+                    alert('Failed to approve post: ' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error approving post: ' + error.message);
+                // Reload post to ensure it's still visible
+                loadPost();
+            }
+        }
+
+        async function rejectPost() {
+            if (!confirm('Are you sure you want to reject this post?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/posts/${postId}/reject`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus({ status: 'rejected' });
+                } else {
+                    alert('Failed to reject post: ' + result.message);
+                }
+            } catch (error) {
+                alert('Error rejecting post: ' + error.message);
+            }
+        }
+
+        async function publishPost() {
+            try {
+                // Show loading state
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'status-message status-loading';
+                statusDiv.textContent = '📤 Publishing to Threads...';
+                const container = document.getElementById('post-container');
+                container.prepend(statusDiv);
+                
+                const response = await fetch(`${API_BASE}/api/posts/${postId}/publish`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                    statusDiv.className = 'status-message status-error';
+                    statusDiv.textContent = `❌ Failed to publish: ${errorData.detail || 'Unknown error'}`;
+                    throw new Error(errorData.detail || 'Failed to publish post');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.className = 'status-message status-success';
+                    statusDiv.textContent = '✅ Post published successfully!';
+                    if (result.thread_url) {
+                        statusDiv.innerHTML = `✅ Post published successfully! <a href="${result.thread_url}" target="_blank">View on Threads</a>`;
+                    }
+                    // Reload to show published status after a short delay
+                    setTimeout(() => {
+                        loadPost();
+                    }, 2000);
+                } else {
+                    statusDiv.className = 'status-message status-error';
+                    statusDiv.textContent = `❌ Failed to publish: ${result.message || 'Unknown error'}`;
+                    throw new Error(result.message || 'Failed to publish post');
+                }
+            } catch (error) {
+                // Re-throw so approvePost can handle it if called from there
+                throw error;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load post on page load
+        loadPost();
+    </script>
+</body>
+</html>
+
+

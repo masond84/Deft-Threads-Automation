@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Threads Post Approval</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Threads Post Approval</h1>
+            <p class="subtitle">Review and approve pending posts</p>
+            <button id="generate-btn" class="btn btn-generate" onclick="toggleGenerateForm()">+ Generate Post</button>
+        </header>
+
+        <!-- Generation Form -->
+        <div id="generate-form" class="generate-form" style="display: none;">
+            <div class="form-card">
+                <h2>Generate New Post</h2>
+                <div class="form-tabs">
+                    <button class="tab-btn active" onclick="switchTab('connection')">Connection</button>
+                    <button class="tab-btn" onclick="switchTab('analysis')">Analysis</button>
+                    <button class="tab-btn" onclick="switchTab('briefs')">Briefs</button>
+                </div>
+
+                <!-- Connection Tab -->
+                <div id="tab-connection" class="tab-content active">
+                    <div class="form-group">
+                        <label>Connection Type (optional)</label>
+                        <input type="text" id="connection-type" placeholder="e.g., founders, developers, SMBs">
+                        <small>Leave empty for general connection post</small>
+                    </div>
+                    <button class="btn btn-primary" onclick="generatePost('connection')">Generate Connection Post</button>
+                </div>
+
+                <!-- Analysis Tab -->
+                <div id="tab-analysis" class="tab-content">
+                    <div class="form-group">
+                        <label>Topic (optional)</label>
+                        <input type="text" id="analysis-topic" placeholder="e.g., software development">
+                        <small>Leave empty for general post matching your style</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Posts to Analyze</label>
+                        <input type="number" id="analysis-limit" value="25" min="1" max="100">
+                        <small>Number of past posts to analyze (default: 25)</small>
+                    </div>
+                    <button class="btn btn-primary" onclick="generatePost('analysis')">Generate from Analysis</button>
+                </div>
+
+                <!-- Briefs Tab -->
+                <div id="tab-briefs" class="tab-content">
+                    <div class="form-group">
+                        <label>Status Filter (optional)</label>
+                        <input type="text" id="briefs-status" placeholder="e.g., Ready">
+                        <small>Filter Notion briefs by status</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Number of Briefs</label>
+                        <input type="number" id="briefs-limit" value="1" min="1" max="10">
+                        <small>Number of briefs to fetch (default: 1)</small>
+                    </div>
+                    <button class="btn btn-primary" onclick="generatePost('briefs')">Generate from Briefs</button>
+                </div>
+
+                <div id="generate-status" class="status-message" style="display: none;"></div>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">Loading posts...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div id="posts-container" class="posts-container">
+            <!-- Posts will be loaded here -->
+        </div>
+
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <p>No pending posts. All caught up!</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        function toggleGenerateForm() {
+            const form = document.getElementById('generate-form');
+            const btn = document.getElementById('generate-btn');
+            if (form.style.display === 'none') {
+                form.style.display = 'block';
+                btn.textContent = '− Cancel';
+            } else {
+                form.style.display = 'none';
+                btn.textContent = '+ Generate Post';
+            }
+        }
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        async function generatePost(mode) {
+            const statusDiv = document.getElementById('generate-status');
+            statusDiv.style.display = 'block';
+            statusDiv.className = 'status-message status-loading';
+            statusDiv.textContent = 'Generating post... This may take a moment.';
+
+            let requestBody = {};
+            let endpoint = '';
+
+            try {
+                if (mode === 'connection') {
+                    endpoint = '/api/generate/connection';
+                    const connectionType = document.getElementById('connection-type').value.trim();
+                    if (connectionType) {
+                        requestBody = { connection_type: connectionType };
+                    }
+                } else if (mode === 'analysis') {
+                    endpoint = '/api/generate/analysis';
+                    const topic = document.getElementById('analysis-topic').value.trim();
+                    const limit = parseInt(document.getElementById('analysis-limit').value) || 25;
+                    requestBody = { limit: limit };
+                    if (topic) {
+                        requestBody.topic = topic;
+                    }
+                } else if (mode === 'briefs') {
+                    endpoint = '/api/generate/briefs';
+                    const statusFilter = document.getElementById('briefs-status').value.trim();
+                    const limit = parseInt(document.getElementById('briefs-limit').value) || 1;
+                    requestBody = { limit: limit };
+                    if (statusFilter) {
+                        requestBody.status_filter = statusFilter;
+                    }
+                }
+
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusDiv.className = 'status-message status-success';
+                    statusDiv.innerHTML = `✅ Post generated successfully! <a href="${data.approval_url}">Review it here</a>`;
+                    
+                    // Reload posts after a short delay
+                    setTimeout(() => {
+                        loadPosts();
+                        toggleGenerateForm(); // Close form
+                    }, 2000);
+                } else {
+                    statusDiv.className = 'status-message status-error';
+                    statusDiv.textContent = `❌ Error: ${data.detail || 'Failed to generate post'}`;
+                }
+            } catch (error) {
+                statusDiv.className = 'status-message status-error';
+                statusDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+
+        async function loadPosts() {
+            try {
+                const response = await fetch(`${API_BASE}/api/posts/pending`);
+                const data = await response.json();
+                
+                document.getElementById('loading').style.display = 'none';
+                
+                if (data.posts.length === 0) {
+                    document.getElementById('empty-state').style.display = 'block';
+                    document.getElementById('posts-container').innerHTML = '';
+                    return;
+                }
+                
+                document.getElementById('empty-state').style.display = 'none';
+                const container = document.getElementById('posts-container');
+                container.innerHTML = '';
+                
+                data.posts.forEach(post => {
+                    const postElement = createPostElement(post);
+                    container.appendChild(postElement);
+                });
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = `Error loading posts: ${error.message}`;
+            }
+        }
+
+        function createPostElement(post) {
+            const div = document.createElement('div');
+            div.className = 'post-card';
+            
+            const modeLabel = post.mode.charAt(0).toUpperCase() + post.mode.slice(1);
+            const createdDate = new Date(post.created_at).toLocaleString();
+            
+            let actionButton = '';
+            if (post.status === 'pending') {
+                actionButton = `<a href="/approve/${post.id}" class="btn btn-primary">Review & Approve</a>`;
+            } else if (post.status === 'approved') {
+                actionButton = `<a href="/approve/${post.id}" class="btn btn-approve">Retry Publishing</a>`;
+            }
+            
+            div.innerHTML = `
+                <div class="post-header">
+                    <span class="mode-badge mode-${post.mode}">${modeLabel}</span>
+                    ${post.status === 'approved' ? '<span class="status-badge status-approved">APPROVED</span>' : ''}
+                    <span class="date">${createdDate}</span>
+                </div>
+                <div class="post-content">
+                    <p>${escapeHtml(post.post_text)}</p>
+                    <div class="post-meta">
+                        <span class="char-count">${post.post_text.length} characters</span>
+                    </div>
+                </div>
+                <div class="post-actions">
+                    ${actionButton}
+                </div>
+            `;
+            
+            return div;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load posts on page load
+        loadPosts();
+        
+        // Refresh every 30 seconds
+        setInterval(loadPosts, 30000);
+    </script>
+</body>
+</html>
+
+

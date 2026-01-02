@@ -4,12 +4,15 @@ Automated system for generating and posting content to Threads from Notion datab
 
 ## Features
 
-- **Dual Generation Modes**: Generate posts from Notion briefs OR by analyzing your past posts
+- **Three Generation Modes**: Generate posts from Notion briefs, analyze past posts, or create connection posts
+- **Web API**: REST API for automation (Make.com, Zapier, webhooks)
+- **Mobile Approval**: Web-based approval interface works on any device
+- **Email Notifications**: Get notified when posts are ready for approval
 - **Notion Integration**: Fetches post briefs from your Notion database (Path A)
 - **Style Analysis**: Analyzes your past Threads posts to match your authentic writing style (Path B)
+- **Connection Posts**: Quick networking posts (Path C)
 - **AI-Powered Generation**: Uses OpenAI GPT to generate custom posts based on briefs and brand profile
 - **Brand Consistency**: Incorporates brand voice, tone, and style guidelines
-- **Interactive Review**: Preview and approve posts before publishing
 - **Auto-Posting**: Publishes approved posts directly to Threads
 - **Smart Content**: Ensures posts meet Threads requirements (max 500 chars, no emojis, complete CTAs)
 
@@ -355,6 +358,46 @@ Enter your short-lived token when prompted. The script will generate a long-live
 # Test posting a single thread
 python scripts/post_thread.py "Your post text here"
 ```
+
+---
+
+## Web API & Mobile Approval
+
+The system includes a web API and mobile-friendly approval interface for automation and remote access.
+
+### Quick Start
+
+1. **Set up Supabase** (free database)
+   - Create project at https://supabase.com
+   - Run SQL from `docs/SETUP_WEB_API.md` to create table
+
+2. **Configure Email**
+   - Set up Gmail app password
+   - Add to `.env`: `GMAIL_ADDRESS` and `GMAIL_APP_PASSWORD`
+
+3. **Deploy to Vercel**
+   ```bash
+   vercel
+   ```
+   - Set all environment variables in Vercel dashboard
+   - Update `APP_BASE_URL` after deployment
+
+4. **Access Web UI**
+   - Visit your Vercel URL
+   - Approve posts from any device
+
+### API Endpoints
+
+- `POST /api/generate/briefs` - Generate from Notion briefs
+- `POST /api/generate/analysis` - Generate from post analysis
+- `POST /api/generate/connection` - Generate connection post
+- `GET /api/posts/pending` - Get all pending posts
+- `GET /api/posts/{id}` - Get specific post
+- `POST /api/posts/{id}/approve` - Approve a post
+- `POST /api/posts/{id}/reject` - Reject a post
+- `POST /api/posts/{id}/publish` - Publish approved post
+
+See `docs/SETUP_WEB_API.md` for detailed setup instructions.
 
 ---
 

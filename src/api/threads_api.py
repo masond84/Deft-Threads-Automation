@@ -136,15 +136,26 @@ class ThreadsAPI:
             auto_publish (bool): If True, automatically publish after creation (default: True)
             
         Returns:
-            dict: Response containing thread ID if successful, None otherwise
+            dict: Response containing thread ID if successful, or error dict if failed
         """
         if len(text) > 500:
-            print("Error: Thread text cannot exceed 500 characters")
-            return None
+            error_msg = "Thread text cannot exceed 500 characters"
+            print(f"❌ Error: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'status_code': 400
+            }
         
         user_id = self.get_user_id()
         if not user_id:
-            return None
+            error_msg = "Could not get user ID from Threads API"
+            print(f"❌ Error: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'status_code': 401
+            }
         
         # Step 1: Create the thread container
         url = f"{self.base_url}/{user_id}/threads"
@@ -158,12 +169,24 @@ class ThreadsAPI:
         if auto_publish:
             payload["auto_publish_text"] = True
         
-        response = requests.post(url, headers=self._get_headers(), json=payload)
+        print(f"📤 Creating thread with auto_publish={auto_publish}...")
+        print(f"📝 Post text ({len(text)} chars): {text[:100]}...")
+        
+        try:
+            response = requests.post(url, headers=self._get_headers(), json=payload)
+        except Exception as e:
+            error_msg = f"Network error: {str(e)}"
+            print(f"❌ {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'status_code': 0
+            }
         
         if response.status_code == 200:
             result = response.json()
             print(f"✅ Thread created successfully!")
-            print(f"Full API Response: {result}")
+            print(f"📋 Full API Response: {result}")
             
             # The API returns 'creation_id' when creating, 'id' when published
             creation_id = result.get('creation_id') or result.get('id')
@@ -172,40 +195,121 @@ class ThreadsAPI:
                 # If auto_publish was used, the thread should already be published
                 if creation_id:
                     print(f"✅ Thread published automatically!")
-                    print(f"Thread ID: {creation_id}")
-                    result['thread_id'] = creation_id
-                    return result
+                    print(f"🆔 Thread ID: {creation_id}")
+                    return {
+                        'success': True,
+                        'id': creation_id,
+                        'thread_id': creation_id,
+                        'creation_id': creation_id,
+                        'response': result
+                    }
+                else:
+                    # No ID in response - might need manual publish
+                    print(f"⚠️ No thread ID in auto-publish response, trying manual publish...")
+                    # Fall through to manual publish logic
             else:
                 # Step 2: Publish the thread using creation_id
                 if creation_id:
                     publish_url = f"{self.base_url}/{user_id}/threads_publish"
                     publish_payload = {"creation_id": creation_id}
-                    publish_response = requests.post(
-                        publish_url, 
-                        headers=self._get_headers(), 
-                        json=publish_payload
-                    )
+                    print(f"📤 Publishing thread with creation_id: {creation_id}...")
+                    
+                    try:
+                        publish_response = requests.post(
+                            publish_url, 
+                            headers=self._get_headers(), 
+                            json=publish_payload
+                        )
+                    except Exception as e:
+                        error_msg = f"Network error during publish: {str(e)}"
+                        print(f"❌ {error_msg}")
+                        return {
+                            'success': False,
+                            'error': error_msg,
+                            'creation_id': creation_id,
+                            'status_code': 0
+                        }
                     
                     if publish_response.status_code == 200:
                         publish_result = publish_response.json()
                         print(f"✅ Thread published successfully!")
-                        print(f"Publish Response: {publish_result}")
+                        print(f"📋 Publish Response: {publish_result}")
                         # The publish response contains the actual thread ID
                         thread_id = publish_result.get('id')
                         if thread_id:
-                            result['thread_id'] = thread_id
-                            result['creation_id'] = creation_id
-                        return result
+                            return {
+                                'success': True,
+                                'id': thread_id,
+                                'thread_id': thread_id,
+                                'creation_id': creation_id,
+                                'response': publish_result
+                            }
+                        else:
+                            error_msg = "Publish succeeded but no thread ID in response"
+                            print(f"⚠️ {error_msg}")
+                            return {
+                                'success': False,
+                                'error': error_msg,
+                                'creation_id': creation_id,
+                                'response': publish_result
+                            }
                     else:
-                        print(f"❌ Error publishing thread: {publish_response.status_code}")
-                        print(f"Publish response: {publish_response.text}")
-                        return None
+                        error_msg = f"Error publishing thread: HTTP {publish_response.status_code}"
+                        print(f"❌ {error_msg}")
+                        print(f"📋 Publish response: {publish_response.text}")
+                        return {
+                            'success': False,
+                            'error': error_msg,
+                            'detail': publish_response.text,
+                            'creation_id': creation_id,
+                            'status_code': publish_response.status_code
+                        }
+                else:
+                    error_msg = "No creation_id returned from thread creation"
+                    print(f"❌ {error_msg}")
+                    return {
+                        'success': False,
+                        'error': error_msg,
+                        'response': result
+                    }
             
-            return result
+            # If we get here with auto_publish but no ID, return what we have
+            if creation_id:
+                return {
+                    'success': True,
+                    'id': creation_id,
+                    'thread_id': creation_id,
+                    'creation_id': creation_id,
+                    'response': result
+                }
+            
+            # No ID at all
+            error_msg = "Thread created but no ID returned"
+            print(f"⚠️ {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'response': result
+            }
         else:
-            print(f"❌ Error creating thread: {response.status_code}")
-            print(f"Response: {response.text}")
-            return None
+            error_msg = f"Error creating thread: HTTP {response.status_code}"
+            print(f"❌ {error_msg}")
+            print(f"📋 Response: {response.text}")
+            
+            # Try to parse error details
+            try:
+                error_data = response.json()
+                error_detail = error_data.get('error', {}).get('message', response.text)
+            except:
+                error_detail = response.text
+            
+            return {
+                'success': False,
+                'error': error_msg,
+                'detail': error_detail,
+                'status_code': response.status_code,
+                'response': response.text
+            }
     
     def reply_to_thread(self, thread_id: str, text: str) -> Optional[Dict]:
         """

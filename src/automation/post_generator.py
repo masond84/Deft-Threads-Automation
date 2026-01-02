@@ -159,7 +159,7 @@ class PostGenerator:
                     print(f"❌ Failed: {result.get('error', 'Unknown error')}")
         
         return results
-    
+
     def post_approved_post(self, result: Dict) -> Dict:
         """
         Post an approved generated post to Threads
@@ -180,31 +180,70 @@ class PostGenerator:
         post_text = result["generated_post"]
         
         # Handle both brief-based and analysis-based results
-        if "brief" in result:
+        if "brief" in result and result["brief"]:
             topic = result["brief"].get('topic', 'Unknown')
+        elif result.get("type") == "connection":
+            topic = "Connection post"
         else:
             topic = "Analysis-based post"
         
         print(f"📤 Posting to Threads: {topic}")
+        print(f"📝 Post text ({len(post_text)} chars): {post_text[:100]}...")
         
         # Post to Threads
         post_result = self.threads_api.post_thread(post_text, auto_publish=True)
         
-        if post_result:
-            thread_id = post_result.get('id') or post_result.get('thread_id')
-            return {
-                "success": True,
-                "thread_id": thread_id,
-                "thread_url": f"https://www.threads.net/t/{thread_id}/" if thread_id else None,
-                "result": result
-            }
-        else:
+        if post_result is None:
+            error_msg = "Failed to post to Threads - no response from API"
+            print(f"❌ {error_msg}")
             return {
                 "success": False,
-                "error": "Failed to post to Threads",
+                "error": error_msg,
                 "result": result
             }
         
+        # Check if it's an error response
+        if post_result.get('success') == False:
+            error_msg = post_result.get('error', 'Unknown error')
+            error_detail = post_result.get('detail', '')
+            full_error = f"{error_msg}" + (f": {error_detail}" if error_detail else "")
+            print(f"❌ Failed to post: {full_error}")
+            return {
+                "success": False,
+                "error": full_error,
+                "status_code": post_result.get('status_code'),
+                "result": result,
+                "api_response": post_result
+            }
+        
+        # Extract thread_id from various possible fields
+        thread_id = (
+            post_result.get('thread_id') or 
+            post_result.get('id') or 
+            post_result.get('creation_id')
+        )
+        
+        if thread_id:
+            thread_url = f"https://www.threads.net/t/{thread_id}/"
+            print(f"✅ Posted successfully! Thread ID: {thread_id}")
+            print(f"🔗 Thread URL: {thread_url}")
+            return {
+                "success": True,
+                "thread_id": thread_id,
+                "thread_url": thread_url,
+                "result": result
+            }
+        else:
+            error_msg = "Post created but no thread ID returned"
+            print(f"⚠️ {error_msg}")
+            print(f"📋 Full response: {post_result}")
+            return {
+                "success": False,
+                "error": error_msg,
+                "result": result,
+                "api_response": post_result
+            }
+
     def post_multiple_approved(self, results: List[Dict], delay_seconds: int = 60) -> List[Dict]:
         """
         Post multiple approved posts with delay between each
