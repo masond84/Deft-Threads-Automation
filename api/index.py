@@ -464,5 +464,6 @@ async def publish_post(post_id: str):
         raise HTTPException(status_code=500, detail=f"Error publishing post: {error_msg}")
 
 # Vercel serverless handler
-handler = Mangum(app)
+# Handler is now exported from api/handler.py for Vercel compatibility
+# handler = Mangum(app)
 
