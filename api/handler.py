@@ -1,6 +1,6 @@
 """
 Vercel-compatible handler for FastAPI app
-Vercel natively supports ASGI apps - no Mangum needed
+Vercel natively supports ASGI apps
 """
 import sys
 from pathlib import Path
@@ -13,5 +13,7 @@ sys.path.insert(0, str(api_dir))
 sys.path.insert(0, str(project_root / "src"))
 
 # Import and export app directly
+from mangum import Mangum
 import index
-handler = index.app
+
+handler = Mangum(index.app)
