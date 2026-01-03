@@ -92,6 +92,60 @@
             </div>
         </div>
 
+        <!-- Calendar View -->
+        <div id="calendar-container" class="mb-4">
+            <!-- Calendar Header - Days of Week -->
+            <div class="bg-base-100 rounded-lg shadow-lg p-4 mb-2">
+                <!-- Navigation Arrows and Current Day Display -->
+                <div class="flex justify-between items-center mb-3">
+                    <button id="prev-day-btn" class="btn btn-ghost btn-sm btn-circle" onclick="navigateDay(-1)">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <div id="week-range" class="text-sm font-medium text-base-content/70">
+                        <!-- Current day will be displayed here -->
+                    </div>
+                    <button id="next-day-btn" class="btn btn-ghost btn-sm btn-circle" onclick="navigateDay(1)">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+                <!-- Day Labels Row -->
+                <div class="flex justify-between items-center mb-2">
+                    <div id="day-labels" class="flex gap-1 w-full">
+                        <!-- Day labels will be dynamically generated -->
+                    </div>
+                </div>
+                <!-- Calendar Dates - Single Row -->
+                <div id="calendar-dates" class="flex justify-between items-center">
+                    <!-- Dates will be dynamically generated -->
+                </div>
+            </div>
+
+            <!-- Scrollable Calendar Timeline -->
+            <div class="bg-base-100 rounded-lg shadow-lg overflow-hidden">
+                <div class="flex overflow-y-auto" style="height: 1152px;">
+                    <!-- Time Axis (Left Side) -->
+                    <div id="time-axis" class="w-20 flex-shrink-0 border-r border-base-300 pt-2">
+                        <!-- Time labels will be dynamically generated -->
+                    </div>
+
+                    <!-- Calendar Grid (Right Side) - Single Day View -->
+                    <div class="flex-1 relative">
+                        <!-- Single Day Column -->
+                        <div class="absolute inset-0 border-r border-base-300/30"></div>
+
+                        <!-- Event Cards Container -->
+                        <div id="calendar-events" class="relative h-full p-2">
+                            <!-- Events will be dynamically inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Generation Form (Collapsible) -->
         <div id="generate-form" class="card bg-base-100 shadow-xl mb-4 hidden animate-[slideDown_0.3s_ease]">
             <div class="card-body">
@@ -173,6 +227,272 @@
 
     <script>
         const API_BASE = window.location.origin;
+
+        // Calendar functionality
+        let selectedDate = new Date();
+        let calendarStartDate = new Date(); // Start from current day
+        
+        function initializeCalendar() {
+            // Reset to current day on initialization
+            calendarStartDate = new Date();
+            calendarStartDate.setHours(0, 0, 0, 0);
+            selectedDate = new Date(calendarStartDate);
+            selectedDate.setHours(0, 0, 0, 0);
+            
+            generateTimeAxis();
+            updateCalendarDates();
+            loadCalendarPosts();
+        }
+
+        function navigateDay(days) {
+            selectedDate.setDate(selectedDate.getDate() + days);
+            selectedDate.setHours(0, 0, 0, 0);
+            updateCalendarDates();
+            loadCalendarPosts();
+        }
+
+        function selectDate(date) {
+            selectedDate = new Date(date);
+            selectedDate.setHours(0, 0, 0, 0);
+            updateCalendarDates();
+            loadCalendarPosts();
+        }
+
+        function updateCalendarDates() {
+            // Update selected date display
+            const weekRangeEl = document.getElementById('week-range');
+            if (weekRangeEl) {
+                const dateString = selectedDate.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    month: 'long', 
+                    day: 'numeric', 
+                    year: 'numeric' 
+                });
+                weekRangeEl.textContent = dateString;
+            }
+            
+            // Update day labels and dates - show 7 days for selection but only display selected day
+            const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const dayLabelsContainer = document.getElementById('day-labels');
+            const datesContainer = document.getElementById('calendar-dates');
+            
+            if (dayLabelsContainer && datesContainer) {
+                // Calculate the week containing the selected date
+                const selectedDayOfWeek = selectedDate.getDay();
+                const weekStart = new Date(selectedDate);
+                weekStart.setDate(selectedDate.getDate() - selectedDayOfWeek);
+                weekStart.setHours(0, 0, 0, 0);
+                
+                dayLabelsContainer.innerHTML = '';
+                datesContainer.innerHTML = '';
+                
+                // Show 7 days for navigation
+                for (let i = 0; i < 7; i++) {
+                    const date = new Date(weekStart);
+                    date.setDate(weekStart.getDate() + i);
+                    const dayNum = date.getDate();
+                    const dayOfWeek = date.getDay();
+                    const dayLabel = dayLabels[dayOfWeek];
+                    const isSelected = date.toDateString() === selectedDate.toDateString();
+                    const isToday = date.toDateString() === new Date().toDateString();
+                    
+                    // Create day label
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = `flex-1 text-center text-xs font-medium ${isSelected ? 'text-primary font-semibold' : 'text-base-content/60'}`;
+                    labelDiv.textContent = dayLabel;
+                    dayLabelsContainer.appendChild(labelDiv);
+                    
+                    // Create date button (clickable)
+                    const dateDiv = document.createElement('div');
+                    dateDiv.className = 'flex-1 text-center';
+                    
+                    const dateButton = document.createElement('button');
+                    dateButton.className = `w-10 h-10 mx-auto rounded-full flex items-center justify-center text-sm font-semibold transition-all cursor-pointer ${
+                        isSelected 
+                            ? 'bg-primary text-primary-content shadow-md scale-110' 
+                            : isToday
+                            ? 'bg-base-300 text-base-content hover:bg-base-300/80'
+                            : 'text-base-content/70 hover:bg-base-200 hover:text-base-content'
+                    }`;
+                    dateButton.textContent = dayNum;
+                    dateButton.onclick = () => selectDate(date);
+                    dateButton.title = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+                    
+                    dateDiv.appendChild(dateButton);
+                    datesContainer.appendChild(dateDiv);
+                }
+            }
+        }
+
+        function generateTimeAxis() {
+            const timeAxis = document.getElementById('time-axis');
+            timeAxis.innerHTML = '';
+            
+            // Generate time labels from 2 PM to 2 PM next day (24 hours)
+            const times = [];
+            // Start from 2 PM (14:00)
+            for (let hour = 14; hour < 24; hour++) {
+                times.push({ hour, label: formatHour(hour) });
+            }
+            // Continue from midnight to 2 PM next day
+            for (let hour = 0; hour <= 14; hour++) {
+                times.push({ hour, label: formatHour(hour) });
+            }
+            
+            times.forEach((time, index) => {
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'text-xs text-base-content/50 font-medium px-2';
+                timeDiv.style.height = '48px';
+                timeDiv.style.display = 'flex';
+                timeDiv.style.alignItems = 'flex-start';
+                timeDiv.style.paddingTop = '4px';
+                timeDiv.textContent = time.label;
+                timeAxis.appendChild(timeDiv);
+            });
+        }
+
+        function formatHour(hour) {
+            if (hour === 0) return '12 AM';
+            if (hour < 12) return `${hour} AM`;
+            if (hour === 12) return '12 PM';
+            return `${hour - 12} PM`;
+        }
+
+        function getTimePosition(timeString) {
+            // Convert time string to position in pixels
+            // Each hour = 48px
+            const date = new Date(timeString);
+            const hours = date.getHours();
+            const minutes = date.getMinutes();
+            
+            // Calculate position: start from 2 PM (14:00) = 0px
+            let hourDiff;
+            if (hours >= 14) {
+                // Same day: 2 PM to 11:59 PM
+                hourDiff = hours - 14;
+            } else {
+                // Next day: 12 AM to 1:59 PM
+                hourDiff = (24 - 14) + hours; // Hours from 2 PM to midnight + hours from midnight
+            }
+            
+            const position = (hourDiff * 48) + (minutes / 60 * 48);
+            return Math.max(0, position);
+        }
+
+        function getDayIndex(dateString) {
+            const postDate = new Date(dateString);
+            const postDateOnly = new Date(postDate);
+            postDateOnly.setHours(0, 0, 0, 0);
+            
+            // Use calendarStartDate instead of start of week
+            const calendarStart = new Date(calendarStartDate);
+            calendarStart.setHours(0, 0, 0, 0);
+            
+            const diffTime = postDateOnly - calendarStart;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            // Clamp to valid day index (0-6) for the current 7-day view
+            return Math.max(0, Math.min(6, diffDays));
+        }
+
+        async function loadCalendarPosts() {
+            try {
+                const response = await fetch(`${API_BASE}/api/posts/pending`);
+                const data = await response.json();
+                
+                const eventsContainer = document.getElementById('calendar-events');
+                eventsContainer.innerHTML = '';
+                
+                if (data.posts && data.posts.length > 0) {
+                    // Calculate date range for selected day only
+                    const startDate = new Date(selectedDate);
+                    startDate.setHours(0, 0, 0, 0);
+                    const endDate = new Date(selectedDate);
+                    endDate.setHours(23, 59, 59, 999);
+                    
+                    // Filter posts for the selected day only
+                    const filteredPosts = data.posts.filter(post => {
+                        const postDate = new Date(post.created_at);
+                        return postDate >= startDate && postDate <= endDate;
+                    });
+                    
+                    filteredPosts.forEach(post => {
+                        const eventCard = createEventCard(post);
+                        if (eventCard) {
+                            eventsContainer.appendChild(eventCard);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading calendar posts:', error);
+            }
+        }
+
+        function createEventCard(post) {
+            const postDate = new Date(post.created_at);
+            const topPosition = getTimePosition(post.created_at);
+            
+            // Format date for header
+            const dateString = postDate.toLocaleDateString('en-US', { 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            
+            // Format time for display
+            const timeString = postDate.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            });
+            
+            // Determine card color based on status
+            let cardBgClass = 'bg-base-200';
+            let textColorClass = 'text-base-content';
+            if (post.status === 'approved') {
+                cardBgClass = 'bg-primary';
+                textColorClass = 'text-primary-content';
+            }
+            
+            // Get mode label
+            const modeLabel = post.mode.charAt(0).toUpperCase() + post.mode.slice(1);
+            
+            // Truncate post text for display (use first line or first 50 chars)
+            const postLines = post.post_text.split('\n');
+            const displayText = postLines[0].length > 50 
+                ? postLines[0].substring(0, 50) + '...'
+                : postLines[0];
+            
+            const card = document.createElement('div');
+            card.className = `absolute rounded-lg shadow-md p-3 ${cardBgClass} ${textColorClass} cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]`;
+            // Full width since we're only showing one day
+            card.style.left = '0.5%';
+            card.style.width = '99%';
+            card.style.top = `${topPosition}px`;
+            card.style.minHeight = '100px';
+            card.onclick = () => window.location.href = `/approve/${post.id}`;
+            
+            card.innerHTML = `
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-medium opacity-80">${modeLabel}</span>
+                    <a href="/approve/${post.id}" class="text-xs font-medium opacity-80 hover:opacity-100" onclick="event.stopPropagation()">Details ></a>
+                </div>
+                <h3 class="font-bold text-base mb-1 leading-tight">${escapeHtml(displayText)}</h3>
+                <p class="text-xs opacity-70 mb-3">Threads Automation</p>
+                <div class="flex items-center justify-between">
+                    <button class="btn btn-sm btn-ghost rounded-full px-3 h-7 min-h-0 text-xs ${textColorClass} border ${textColorClass === 'text-primary-content' ? 'border-primary-content/30' : 'border-base-300'}" onclick="event.stopPropagation()">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        ${timeString}
+                    </button>
+                    <div class="flex -space-x-2">
+                        <div class="w-6 h-6 rounded-full bg-primary/30 border-2 ${textColorClass === 'text-primary-content' ? 'border-primary' : 'border-base-100'}"></div>
+                    </div>
+                </div>
+            `;
+            
+            return card;
+        }
 
         function toggleGenerateForm() {
             const form = document.getElementById('generate-form');
@@ -290,6 +610,17 @@
         function showSettings() {
             alert('Settings feature coming soon!');
         }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize calendar on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCalendar();
+        });
     </script>
 </body>
 </html>
