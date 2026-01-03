@@ -55,6 +55,15 @@ async def serve_index():
             return HTMLResponse(content=f.read())
     raise HTTPException(status_code=404, detail="index.html not found")
 
+@app.get("/posts", response_class=HTMLResponse)
+async def serve_posts():
+    """Serve the pending posts page"""
+    posts_path = web_dir / "posts.html"
+    if posts_path.exists():
+        with open(posts_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    raise HTTPException(status_code=404, detail="posts.html not found")
+
 @app.get("/approve/{post_id}", response_class=HTMLResponse)
 async def serve_approve(post_id: str):
     """Serve the approval page"""

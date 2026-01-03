@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pending Posts - Threads Automation</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    keyframes: {
+                        slideDown: {
+                            '0%': { opacity: '0', transform: 'translateY(-10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        }
+                    },
+                    animation: {
+                        slideDown: 'slideDown 0.3s ease'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- DaisyUI Components -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
+</head>
+<body class="bg-base-200 min-h-screen">
+    <!-- Bottom Navigation -->
+    <div class="fixed bottom-3 left-0 right-0 bg-[#2a2a2a] rounded-full py-1 px-3 flex justify-around items-center z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.1)] mx-2 md:left-1/2 md:-translate-x-1/2 md:w-[calc(100%-16px)] md:max-w-[600px] md:mx-0 lg:px-6">
+        <!-- Home Button -->
+        <button class="flex flex-col items-center justify-center gap-0.5 bg-transparent border-none text-gray-400 cursor-pointer py-1 px-3 rounded-full transition-all duration-200 relative min-w-[50px] hover:text-white hover:bg-[rgba(55,65,81,0.3)]" onclick="window.location.href='/'">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+            </svg>
+            <span class="text-[10px] font-medium leading-tight">Home</span>
+        </button>
+        
+        <!-- Pending Posts Button (Active) -->
+        <button class="flex items-center justify-center bg-transparent border-none text-gray-400 cursor-pointer p-2 rounded-full transition-all duration-200 min-w-10 min-h-10 bg-gray-700 text-white hover:bg-[rgba(55,65,81,0.5)]" onclick="window.location.href='/posts'" title="Pending Posts">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+            </svg>
+        </button>
+        
+        <!-- Generate Post Button (Blue Plus) -->
+        <button class="flex items-center justify-center bg-blue-500 border-none text-white cursor-pointer w-[44px] h-[44px] rounded-full shadow-[0_4px_12px_rgba(59,130,246,0.4)] transition-all duration-200 relative z-10 hover:bg-blue-600 hover:scale-105 hover:shadow-[0_6px_16px_rgba(59,130,246,0.5)] active:scale-95" onclick="window.location.href='/'" title="Generate Post">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- Full-width background with centered content container -->
+    <div class="w-full min-h-screen">
+        <div class="w-full max-w-[600px] mx-auto px-4 sm:px-6 lg:px-8 pb-32">
+            <!-- Header Card -->
+            <div class="card bg-base-100 shadow-xl mt-4 mb-4">
+                <div class="card-body">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="avatar placeholder">
+                                <div class="bg-primary text-primary-content rounded-full w-12">
+                                    <span class="text-lg font-bold">TS</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-sm text-base-content/70">Pending Posts</p>
+                                <p class="font-semibold text-base">Threads Automation</p>
+                            </div>
+                        </div>
+                        <button class="btn btn-ghost btn-circle" onclick="showSettings()" title="Settings">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="text-center py-12">
+                <span class="loading loading-spinner loading-lg text-primary"></span>
+                <p class="mt-4 text-base-content/70">Loading posts...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="error" class="alert alert-error mb-4 hidden">
+                <span>Error loading posts</span>
+            </div>
+            
+            <!-- Posts Container -->
+            <div id="posts-container" class="space-y-4">
+                <!-- Posts will be loaded here -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="text-center py-12 hidden">
+                <div class="text-6xl mb-4">✨</div>
+                <p class="text-lg text-base-content/70">No pending posts. All caught up!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        async function loadPosts() {
+            try {
+                const response = await fetch(`${API_BASE}/api/posts/pending`);
+                const data = await response.json();
+                
+                document.getElementById('loading').classList.add('hidden');
+                
+                if (data.posts.length === 0) {
+                    document.getElementById('empty-state').classList.remove('hidden');
+                    document.getElementById('posts-container').innerHTML = '';
+                    return;
+                }
+                
+                document.getElementById('empty-state').classList.add('hidden');
+                const container = document.getElementById('posts-container');
+                container.innerHTML = '';
+                
+                data.posts.forEach((post, index) => {
+                    const postElement = createPostElement(post);
+                    container.appendChild(postElement);
+                    // Remove divider from last post
+                    if (index === data.posts.length - 1) {
+                        const divider = postElement.querySelector('.divider');
+                        if (divider) divider.remove();
+                    }
+                });
+            } catch (error) {
+                document.getElementById('loading').classList.add('hidden');
+                const errorDiv = document.getElementById('error');
+                errorDiv.classList.remove('hidden');
+                errorDiv.classList.add('flex');
+                errorDiv.innerHTML = `<span>Error loading posts: ${error.message}</span>`;
+            }
+        }
+
+        function createPostElement(post) {
+            const div = document.createElement('div');
+            div.className = 'post-item py-6 px-1 hover:bg-base-200/30 transition-colors duration-200';
+            
+            const modeLabel = post.mode.charAt(0).toUpperCase() + post.mode.slice(1);
+            const createdDate = new Date(post.created_at).toLocaleString();
+            
+            // Badge colors based on mode
+            let badgeClass = 'badge-primary';
+            if (post.mode === 'analysis') {
+                badgeClass = 'badge-secondary';
+            } else if (post.mode === 'briefs') {
+                badgeClass = 'badge-accent';
+            }
+            
+            let actionButton = '';
+            if (post.status === 'pending') {
+                actionButton = `<a href="/approve/${post.id}" class="btn btn-primary btn-sm rounded-full px-6 hover:scale-105 transition-transform">Review & Approve</a>`;
+            } else if (post.status === 'approved') {
+                actionButton = `<a href="/approve/${post.id}" class="btn btn-success btn-sm rounded-full px-6 hover:scale-105 transition-transform">Retry Publishing</a>`;
+            }
+            
+            div.innerHTML = `
+                <div class="flex flex-col gap-3">
+                    <!-- Header with badges and date -->
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div class="flex gap-2 flex-wrap items-center">
+                            <div class="badge ${badgeClass} badge-sm font-medium">${modeLabel}</div>
+                            ${post.status === 'approved' ? '<div class="badge badge-warning badge-sm font-medium">APPROVED</div>' : ''}
+                        </div>
+                        <span class="text-xs text-base-content/50 font-medium">${createdDate}</span>
+                    </div>
+                    
+                    <!-- Post content - larger, more readable -->
+                    <p class="text-[15px] leading-relaxed whitespace-pre-wrap break-words text-base-content/95 font-normal">${escapeHtml(post.post_text)}</p>
+                    
+                    <!-- Footer with metadata and action -->
+                    <div class="flex justify-between items-center pt-1">
+                        <span class="text-xs text-base-content/50">${post.post_text.length} characters</span>
+                        <div class="flex gap-2">
+                            ${actionButton}
+                        </div>
+                    </div>
+                </div>
+                <!-- Divider after each post (except last) -->
+                <div class="divider my-0 mt-6 opacity-50"></div>
+            `;
+            
+            return div;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showSettings() {
+            alert('Settings feature coming soon!');
+        }
+
+        // Load posts on page load
+        loadPosts();
+        
+        // Refresh every 30 seconds
+        setInterval(loadPosts, 30000);
+    </script>
+</body>
+</html>
+
