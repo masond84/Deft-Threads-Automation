@@ -106,6 +106,9 @@ class GenerateAnalysisRequest(BaseModel):
 class GenerateConnectionRequest(BaseModel):
     connection_type: Optional[str] = None
 
+class UpdatePostTextRequest(BaseModel):
+    post_text: str
+
 # Response models
 class PostResponse(BaseModel):
     id: str
@@ -335,6 +338,40 @@ async def get_post(post_id: str):
             thread_id=post.get("thread_id"),
             thread_url=post.get("thread_url"),
             metadata=post.get("metadata", {})
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/posts/{post_id}/text", response_model=PostDetailResponse)
+async def update_post_text(post_id: str, request: UpdatePostTextRequest):
+    """Update the text content of a post"""
+    try:
+        storage = get_storage()
+        post = storage.get_post(post_id)
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        
+        # Don't allow editing published posts
+        if post["status"] == "published":
+            raise HTTPException(status_code=400, detail="Cannot edit a published post")
+        
+        updated = storage.update_post_text(post_id, request.post_text)
+        if not updated:
+            raise HTTPException(status_code=500, detail="Failed to update post text")
+        
+        return PostDetailResponse(
+            id=updated["id"],
+            post_text=updated["post_text"],
+            mode=updated["mode"],
+            status=updated["status"],
+            created_at=updated["created_at"],
+            approved_at=updated.get("approved_at"),
+            published_at=updated.get("published_at"),
+            thread_id=updated.get("thread_id"),
+            thread_url=updated.get("thread_url"),
+            metadata=updated.get("metadata", {})
         )
     except HTTPException:
         raise

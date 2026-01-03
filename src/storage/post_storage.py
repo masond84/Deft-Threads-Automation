@@ -142,6 +142,27 @@ class PostStorage:
         result = self.supabase.table(self.table_name).select("*").eq("status", "approved").order("approved_at", desc=True).execute()
         return result.data or []
     
+    def update_post_text(self, post_id: str, post_text: str) -> Optional[Dict]:
+        """
+        Update post text
+        
+        Args:
+            post_id: UUID of the post
+            post_text: New post text content
+            
+        Returns:
+            Updated post dictionary or None if not found
+        """
+        update_data = {
+            "post_text": post_text
+        }
+        
+        result = self.supabase.table(self.table_name).update(update_data).eq("id", post_id).execute()
+        
+        if result.data:
+            return result.data[0]
+        return None
+    
     def delete_post(self, post_id: str) -> bool:
         """
         Delete a post (for cleanup)
