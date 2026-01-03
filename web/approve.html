@@ -69,6 +69,19 @@
             position: relative;
             z-index: 1;
         }
+        
+        /* Main content card container */
+        .main-content-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            padding: 24px;
+            margin-top: 16px;
+            margin-bottom: 16px;
+        }
     </style>
     
     <!-- DaisyUI Components -->
@@ -103,34 +116,35 @@
     <!-- Full-width background with centered content container (Threads-style) -->
     <div class="w-full min-h-screen">
         <div class="w-full max-w-[600px] mx-auto px-4 sm:px-6 lg:px-8 pb-32 pt-8">
-        <!-- Header Card -->
-        <div class="card bg-base-100 shadow-xl mb-4">
-            <div class="card-body">
-                <div class="flex items-center justify-between">
-                    <h1 class="card-title text-2xl">Review Post</h1>
-                    <a href="/" class="btn btn-ghost btn-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
-                        Back
-                    </a>
+            <!-- Main Content Card -->
+            <div class="main-content-card">
+                <!-- Header -->
+                <div class="mb-6">
+                    <div class="flex items-center justify-between">
+                        <h1 class="text-2xl font-semibold">Review Post</h1>
+                        <a href="/" class="btn btn-ghost btn-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Back
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loading" class="text-center py-12">
+                    <span class="loading loading-spinner loading-lg text-primary"></span>
+                    <p class="mt-4 text-base-content/70">Loading post...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="error" class="alert alert-error mb-4 hidden"></div>
+                
+                <!-- Post Container -->
+                <div id="post-container" class="hidden">
+                    <!-- Post details will be loaded here -->
                 </div>
             </div>
-        </div>
-
-        <!-- Loading State -->
-        <div id="loading" class="text-center py-12">
-            <span class="loading loading-spinner loading-lg text-primary"></span>
-            <p class="mt-4 text-base-content/70">Loading post...</p>
-        </div>
-
-        <!-- Error State -->
-        <div id="error" class="alert alert-error mb-4 hidden"></div>
-        
-        <!-- Post Container -->
-        <div id="post-container" class="hidden">
-            <!-- Post details will be loaded here -->
-        </div>
         </div>
     </div>
 
