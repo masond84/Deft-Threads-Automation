@@ -446,14 +446,14 @@
             const timeAxis = document.getElementById('time-axis');
             timeAxis.innerHTML = '';
             
-            // Generate time labels from 2 PM to 2 PM next day (24 hours)
+            // Generate time labels from 6 AM to 5 AM next day (24 hours)
             const times = [];
-            // Start from 2 PM (14:00)
-            for (let hour = 14; hour < 24; hour++) {
+            // Start from 6 AM (06:00) to 11 PM (23:00)
+            for (let hour = 6; hour < 24; hour++) {
                 times.push({ hour, label: formatHour(hour) });
             }
-            // Continue from midnight to 2 PM next day
-            for (let hour = 0; hour <= 14; hour++) {
+            // Continue from midnight to 5 AM next day (exclude 6 AM to avoid duplication)
+            for (let hour = 0; hour < 6; hour++) {
                 times.push({ hour, label: formatHour(hour) });
             }
             
@@ -483,18 +483,20 @@
             const hours = date.getHours();
             const minutes = date.getMinutes();
             
-            // Calculate position: start from 2 PM (14:00) = 0px
+            // Calculate position: start from 6 AM (06:00) = 0px
+            // Window spans 6 AM to 5:59 AM next day (24 hours)
             let hourDiff;
-            if (hours >= 14) {
-                // Same day: 2 PM to 11:59 PM
-                hourDiff = hours - 14;
+            if (hours >= 6) {
+                // Same day: 6 AM to 11:59 PM
+                hourDiff = hours - 6;
             } else {
-                // Next day: 12 AM to 1:59 PM
-                hourDiff = (24 - 14) + hours; // Hours from 2 PM to midnight + hours from midnight
+                // Next day: 12 AM to 5:59 AM
+                hourDiff = (24 - 6) + hours; // Hours from 6 AM to midnight + hours from midnight
             }
             
             const position = (hourDiff * 48) + (minutes / 60 * 48);
-            return Math.max(0, position);
+            // Clamp to 24-hour window (0 to 1152px)
+            return Math.max(0, Math.min(1152, position));
         }
 
         function getDayIndex(dateString) {
