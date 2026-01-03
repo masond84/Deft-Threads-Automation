@@ -15,22 +15,188 @@
                         slideDown: {
                             '0%': { opacity: '0', transform: 'translateY(-10px)' },
                             '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(100%)' },
+                            '100%': { transform: 'translateY(0)' }
                         }
                     },
                     animation: {
-                        slideDown: 'slideDown 0.3s ease'
+                        slideDown: 'slideDown 0.3s ease',
+                        slideUp: 'slideUp 0.3s ease'
                     }
                 }
             }
         }
     </script>
+    <style>
+        /* Ensure modal overlay and sheet are properly styled */
+        #generate-modal {
+            transition: opacity 0.3s ease;
+        }
+        #modal-sheet {
+            will-change: transform;
+        }
+        #modal-overlay {
+            will-change: opacity;
+        }
+        /* Center modal on desktop */
+        @media (min-width: 768px) {
+            #modal-sheet {
+                left: 50% !important;
+                right: auto !important;
+            }
+        }
+        /* Glassmorphism effect for generate button */
+        #generate-btn {
+            background: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 9999px !important; 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37),
+                        inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.9) !important;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        #generate-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+        #generate-btn:hover {
+            background: rgba(255, 255, 255, 0.15) !important;
+            border-color: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5),
+                        inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+        }
+        #generate-btn:hover::before {
+            left: 100%;
+        }
+        #generate-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.3),
+                        inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+        }
+        #generate-btn svg {
+            color: rgba(255, 255, 255, 0.9);
+        }
+        #generate-btn > * {
+            position: relative;
+            z-index: 1;
+        }
+    </style>
     
     <!-- DaisyUI Components -->
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
 </head>
 <body class="bg-base-200 min-h-screen">
+    <!-- Bottom Sheet Modal for Generate Post -->
+    <div id="generate-modal" class="fixed inset-0 z-[60] hidden">
+        <!-- Overlay Backdrop -->
+        <div id="modal-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity opacity-0" onclick="toggleGenerateForm()"></div>
+        
+        <!-- Bottom Sheet -->
+        <div id="modal-sheet" class="absolute bottom-0 left-0 right-0 md:left-1/2 md:w-[50%] bg-base-100 rounded-t-3xl shadow-2xl transform transition-transform duration-300 ease-out h-2/3 max-h-[90vh] flex flex-col" style="transform: translateY(100%);">
+            <!-- Drag Handle -->
+            <div class="flex justify-center pt-3 pb-2">
+                <div class="w-12 h-1.5 bg-base-300 rounded-full"></div>
+    </div>
+
+            <!-- Header -->
+            <div class="flex justify-between items-center px-4 sm:px-6 lg:px-8 pb-4 border-b border-base-300">
+                <h2 class="text-xl font-bold">Generate New Post</h2>
+                <button onclick="toggleGenerateForm()" class="btn btn-sm btn-circle btn-ghost">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+        </div>
+
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4">
+                <!-- Tabs -->
+                <div class="tabs tabs-boxed mb-4">
+                    <a class="tab tab-active" onclick="switchTab('connection', this)">Connection</a>
+                    <a class="tab" onclick="switchTab('analysis', this)">Analysis</a>
+                    <a class="tab" onclick="switchTab('briefs', this)">Briefs</a>
+                </div>
+
+                <!-- Connection Tab -->
+                <div id="tab-connection" class="block">
+                    <div class="form-control mb-4">
+                        <label class="label">
+                            <span class="label-text font-semibold">Connection Type (optional)</span>
+                        </label>
+                        <input type="text" id="connection-type" placeholder="e.g., founders, developers, SMBs" class="input input-bordered" />
+                        <label class="label">
+                            <span class="label-text-alt">Leave empty for general connection post</span>
+                        </label>
+                    </div>
+                    <button class="btn btn-primary btn-block rounded-full" onclick="generatePost('connection')">Generate Connection Post</button>
+                </div>
+
+                <!-- Analysis Tab -->
+                <div id="tab-analysis" class="hidden">
+                    <div class="form-control mb-4">
+                        <label class="label">
+                            <span class="label-text font-semibold">Topic (optional)</span>
+                        </label>
+                        <input type="text" id="analysis-topic" placeholder="e.g., software development" class="input input-bordered" />
+                        <label class="label">
+                            <span class="label-text-alt">Leave empty for general post matching your style</span>
+                        </label>
+                    </div>
+                    <div class="form-control mb-4">
+                        <label class="label">
+                            <span class="label-text font-semibold">Posts to Analyze</span>
+                        </label>
+                        <input type="number" id="analysis-limit" value="25" min="1" max="100" class="input input-bordered" />
+                        <label class="label">
+                            <span class="label-text-alt">Number of past posts to analyze (default: 25)</span>
+                        </label>
+                    </div>
+                    <button class="btn btn-primary btn-block" onclick="generatePost('analysis')">Generate from Analysis</button>
+                </div>
+
+                <!-- Briefs Tab -->
+                <div id="tab-briefs" class="hidden">
+                    <div class="form-control mb-4">
+                        <label class="label">
+                            <span class="label-text font-semibold">Status Filter (optional)</span>
+                        </label>
+                        <input type="text" id="briefs-status" placeholder="e.g., Ready" class="input input-bordered" />
+                        <label class="label">
+                            <span class="label-text-alt">Filter Notion briefs by status</span>
+                        </label>
+                    </div>
+                    <div class="form-control mb-4">
+                        <label class="label">
+                            <span class="label-text font-semibold">Number of Briefs</span>
+                        </label>
+                        <input type="number" id="briefs-limit" value="1" min="1" max="10" class="input input-bordered" />
+                        <label class="label">
+                            <span class="label-text-alt">Number of briefs to fetch (default: 1)</span>
+                        </label>
+                    </div>
+                    <button class="btn btn-primary btn-block" onclick="generatePost('briefs')">Generate from Briefs</button>
+                </div>
+
+                <div id="generate-status" class="alert mt-4 hidden"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bottom Navigation - Tailwind styled -->
-    <div class="fixed bottom-3 left-0 right-0 bg-[#2a2a2a] rounded-full py-1 px-3 flex justify-around items-center z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.1)] mx-2 md:left-1/2 md:-translate-x-1/2 md:w-[calc(100%-16px)] md:max-w-[600px] md:mx-0 lg:px-6">
+            <div class="fixed bottom-3 left-0 right-0 bg-[#2a2a2a] rounded-full py-1 px-3 flex justify-around items-center z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.1)] mx-2 md:left-1/2 md:-translate-x-1/2 md:w-[calc(100%-16px)] md:max-w-[600px] md:mx-0 lg:px-6">
         <!-- Home Button (Active) -->
         <button class="flex flex-col items-center justify-center gap-0.5 bg-transparent border-none text-gray-400 cursor-pointer py-1 px-3 rounded-full transition-all duration-200 relative min-w-[50px] bg-gray-700 text-white hover:bg-[rgba(55,65,81,0.5)]" onclick="window.location.href='/'">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5" stroke-width="1.5">
@@ -52,11 +218,11 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
         </button>
-    </div>
+            </div>
 
-    <!-- Full-width background with centered content container (Threads-style) -->
-    <div class="w-full min-h-screen">
-        <div class="w-full max-w-[600px] mx-auto px-4 sm:px-6 lg:px-8 pb-32">
+            <!-- Full-width background with centered content container (Threads-style) -->
+            <div class="w-full min-h-screen">
+                <div class="w-full max-w-[600px] mx-auto px-4 sm:px-6 lg:px-8 pb-32">
         <!-- Header Card -->
         <div class="card bg-base-100 shadow-xl mt-4 mb-4">
             <div class="card-body">
@@ -77,13 +243,13 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
+                    </svg>
                             <span class="badge badge-xs badge-primary indicator-item"></span>
                         </div>
                     </button>
                 </div>
                 <h2 class="card-title text-xl mb-2">Ready to generate a new post?</h2>
-                <button id="generate-btn" class="btn btn-primary btn-block" onclick="toggleGenerateForm()">
+                <button id="generate-btn" class="btn btn-primary btn-block rounded-full" onclick="toggleGenerateForm()">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
@@ -145,85 +311,9 @@
                 </div>
             </div>
         </div>
-
-        <!-- Generation Form (Collapsible) -->
-        <div id="generate-form" class="card bg-base-100 shadow-xl mb-4 hidden animate-[slideDown_0.3s_ease]">
-            <div class="card-body">
-                <h2 class="card-title mb-4">Generate New Post</h2>
-                
-                <!-- Tabs -->
-                <div class="tabs tabs-boxed mb-4">
-                    <a class="tab tab-active" onclick="switchTab('connection', this)">Connection</a>
-                    <a class="tab" onclick="switchTab('analysis', this)">Analysis</a>
-                    <a class="tab" onclick="switchTab('briefs', this)">Briefs</a>
                 </div>
-
-                <!-- Connection Tab -->
-                <div id="tab-connection" class="block">
-                    <div class="form-control mb-4">
-                        <label class="label">
-                            <span class="label-text font-semibold">Connection Type (optional)</span>
-                        </label>
-                        <input type="text" id="connection-type" placeholder="e.g., founders, developers, SMBs" class="input input-bordered" />
-                        <label class="label">
-                            <span class="label-text-alt">Leave empty for general connection post</span>
-                        </label>
-                    </div>
-                    <button class="btn btn-primary btn-block" onclick="generatePost('connection')">Generate Connection Post</button>
-                </div>
-
-                <!-- Analysis Tab -->
-                <div id="tab-analysis" class="hidden">
-                    <div class="form-control mb-4">
-                        <label class="label">
-                            <span class="label-text font-semibold">Topic (optional)</span>
-                        </label>
-                        <input type="text" id="analysis-topic" placeholder="e.g., software development" class="input input-bordered" />
-                        <label class="label">
-                            <span class="label-text-alt">Leave empty for general post matching your style</span>
-                        </label>
-                    </div>
-                    <div class="form-control mb-4">
-                        <label class="label">
-                            <span class="label-text font-semibold">Posts to Analyze</span>
-                        </label>
-                        <input type="number" id="analysis-limit" value="25" min="1" max="100" class="input input-bordered" />
-                        <label class="label">
-                            <span class="label-text-alt">Number of past posts to analyze (default: 25)</span>
-                        </label>
-                    </div>
-                    <button class="btn btn-primary btn-block" onclick="generatePost('analysis')">Generate from Analysis</button>
-                </div>
-
-                <!-- Briefs Tab -->
-                <div id="tab-briefs" class="hidden">
-                    <div class="form-control mb-4">
-                        <label class="label">
-                            <span class="label-text font-semibold">Status Filter (optional)</span>
-                        </label>
-                        <input type="text" id="briefs-status" placeholder="e.g., Ready" class="input input-bordered" />
-                        <label class="label">
-                            <span class="label-text-alt">Filter Notion briefs by status</span>
-                        </label>
-                    </div>
-                    <div class="form-control mb-4">
-                        <label class="label">
-                            <span class="label-text font-semibold">Number of Briefs</span>
-                        </label>
-                        <input type="number" id="briefs-limit" value="1" min="1" max="10" class="input input-bordered" />
-                        <label class="label">
-                            <span class="label-text-alt">Number of briefs to fetch (default: 1)</span>
-                        </label>
-                    </div>
-                    <button class="btn btn-primary btn-block" onclick="generatePost('briefs')">Generate from Briefs</button>
-                </div>
-
-                <div id="generate-status" class="alert mt-4 hidden"></div>
             </div>
         </div>
-
-        </div>
-    </div>
 
     <script>
         const API_BASE = window.location.origin;
@@ -495,28 +585,41 @@
         }
 
         function toggleGenerateForm() {
-            const form = document.getElementById('generate-form');
-            const btn = document.getElementById('generate-btn');
-            const navBtn = document.getElementById('generate-btn-nav');
+            const modal = document.getElementById('generate-modal');
+            const sheet = document.getElementById('modal-sheet');
+            const overlay = document.getElementById('modal-overlay');
             
-            if (form.classList.contains('hidden')) {
-                form.classList.remove('hidden');
-                btn.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    Cancel
-                `;
-                // Scroll to form
-                form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            } else {
-                form.classList.add('hidden');
-                btn.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Generate Post
-                `;
+            if (modal && sheet && overlay) {
+                if (modal.classList.contains('hidden')) {
+                    // Open modal
+                    modal.classList.remove('hidden');
+                    // Prevent body scroll
+                    document.body.style.overflow = 'hidden';
+                    // Trigger animation
+                    setTimeout(() => {
+                        // Check if we're on desktop (md breakpoint) to add translateX for centering
+                        const isDesktop = window.innerWidth >= 768;
+                        if (isDesktop) {
+                            sheet.style.transform = 'translate(-50%, 0)';
+                        } else {
+                            sheet.style.transform = 'translateY(0)';
+                        }
+                        overlay.style.opacity = '1';
+                    }, 10);
+                } else {
+                    // Close modal
+                    const isDesktop = window.innerWidth >= 768;
+                    if (isDesktop) {
+                        sheet.style.transform = 'translate(-50%, 100%)';
+                    } else {
+                        sheet.style.transform = 'translateY(100%)';
+                    }
+                    overlay.style.opacity = '0';
+                    setTimeout(() => {
+                        modal.classList.add('hidden');
+                        document.body.style.overflow = '';
+                    }, 300);
+                }
             }
         }
 
