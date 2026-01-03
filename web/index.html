@@ -120,6 +120,55 @@
             margin-top: 16px;
             margin-bottom: 16px;
         }
+        
+        /* Gradient from purple to deep slate to dark grey (top left to bottom right) */
+        .bg-gradient-slate {
+            background: linear-gradient(135deg, #9e80bf 0%, #334155 50%, #475569 100%);
+        }
+        
+        /* Override DaisyUI primary colors with gradient */
+        .bg-primary {
+            background: linear-gradient(135deg, #9e80bf 0%, #334155 50%, #475569 100%) !important;
+        }
+        
+        /* Bottom navigation post button with gradient */
+        .btn-nav-post {
+            background: linear-gradient(135deg, #9e80bf 0%, #334155 50%, #475569 100%) !important;
+            border: none !important;
+            box-shadow: 0 4px 12px rgba(158, 128, 191, 0.4) !important;
+        }
+        
+        .btn-nav-post:hover {
+            background: linear-gradient(135deg, #8d6faf 0%, #2d3f52 50%, #3e4d5f 100%) !important;
+            box-shadow: 0 6px 16px rgba(158, 128, 191, 0.5) !important;
+        }
+        
+        /* Text color for gradient backgrounds */
+        .text-primary-content,
+        .text-on-gradient {
+            color: rgba(255, 255, 255, 0.95) !important;
+        }
+        
+        /* Badge with gradient */
+        .badge-primary {
+            background: linear-gradient(135deg, #9e80bf 0%, #334155 50%, #475569 100%) !important;
+            color: rgba(255, 255, 255, 0.95) !important;
+            border: none;
+        }
+        
+        /* Loading spinner color */
+        .text-primary {
+            color: #64748b !important;
+        }
+        
+        /* Border color for gradient elements */
+        .border-primary {
+            border-color: #475569 !important;
+        }
+        
+        .border-primary-content {
+            border-color: rgba(255, 255, 255, 0.3) !important;
+        }
     </style>
     
     <!-- DaisyUI Components -->
@@ -239,8 +288,8 @@
             </svg>
         </button>
         
-        <!-- Generate Post Button (Blue Plus) -->
-        <button class="flex items-center justify-center bg-blue-500 border-none text-white cursor-pointer w-[44px] h-[44px] rounded-full shadow-[0_4px_12px_rgba(59,130,246,0.4)] transition-all duration-200 relative z-10 hover:bg-blue-600 hover:scale-105 hover:shadow-[0_6px_16px_rgba(59,130,246,0.5)] active:scale-95" onclick="toggleGenerateForm()" title="Generate Post">
+        <!-- Generate Post Button (Gradient Plus) -->
+        <button class="btn-nav-post flex items-center justify-center text-white cursor-pointer w-[44px] h-[44px] rounded-full transition-all duration-200 relative z-10 hover:scale-105 active:scale-95" onclick="toggleGenerateForm()" title="Generate Post">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
@@ -263,7 +312,7 @@
                     </div>
                     <div>
                         <p class="text-sm text-base-content/70">Welcome back!</p>
-                        <p class="font-semibold text-base">Threads Automation</p>
+                        <p class="font-semibold text-base">Devin</p>
                     </div>
                 </div>
                 <button class="btn btn-ghost btn-circle" onclick="showSettings()" title="Settings">
@@ -276,7 +325,7 @@
                     </div>
                 </button>
             </div>
-            <h2 class="text-xl mb-4 font-semibold">Ready to generate a new post?</h2>
+            <h2 class="text-xl mb-4 font-semibold" id="dynamic-message">Ready to generate a new post?</h2>
             <button id="generate-btn" class="btn btn-primary btn-block rounded-full" onclick="toggleGenerateForm()">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -606,7 +655,7 @@
                         ${timeString}
                     </button>
                     <div class="flex -space-x-2">
-                        <div class="w-6 h-6 rounded-full bg-primary/30 border-2 ${textColorClass === 'text-primary-content' ? 'border-primary' : 'border-base-100'}"></div>
+                        <div class="w-6 h-6 rounded-full bg-gradient-slate opacity-30 border-2 ${textColorClass === 'text-primary-content' ? 'border-primary' : 'border-base-100'}"></div>
                     </div>
                 </div>
             `;
@@ -754,6 +803,47 @@
         document.addEventListener('DOMContentLoaded', function() {
             initializeCalendar();
         });
+
+        // Dynamic messages that change on each reload
+        const dynamicMessages = [
+            "Ready to generate a new post?",
+            "What's on your mind today?",
+            "Time to create something amazing!",
+            "Let's craft your next post!",
+            "Ready to share your thoughts?",
+            "What story will you tell today?",
+            "Let's make your voice heard!",
+            "Time to engage your audience!",
+            "Ready to connect with your community?",
+            "What message do you want to share?"
+        ];
+
+        // Load user info and set dynamic message
+        async function loadUserInfo() {
+            try {
+                const response = await fetch(`${API_BASE}/api/user/info`);
+                const userData = await response.json();
+                
+                // Update username
+                const username = userData.username || "User";
+                const displayName = username.charAt(0).toUpperCase() + username.slice(1);
+                document.getElementById('user-name').textContent = displayName;
+                
+                // Set dynamic message
+                const randomMessage = dynamicMessages[Math.floor(Math.random() * dynamicMessages.length)];
+                document.getElementById('dynamic-message').textContent = randomMessage;
+                
+            } catch (error) {
+                console.error('Error loading user info:', error);
+                document.getElementById('user-name').textContent = "User";
+                // Still set dynamic message even if user info fails
+                const randomMessage = dynamicMessages[Math.floor(Math.random() * dynamicMessages.length)];
+                document.getElementById('dynamic-message').textContent = randomMessage;
+            }
+        }
+
+        // Call on page load
+        loadUserInfo();        
     </script>
 </body>
 </html>

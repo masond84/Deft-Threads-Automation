@@ -82,6 +82,55 @@
             margin-top: 16px;
             margin-bottom: 16px;
         }
+        
+        /* Gradient from purple to deep slate to dark grey (top left to bottom right) */
+        .bg-gradient-slate {
+            background: linear-gradient(135deg, #9e80bf 0%, #334155 50%, #475569 100%);
+        }
+        
+        /* Override DaisyUI primary colors with gradient */
+        .bg-primary {
+            background: linear-gradient(135deg, #9e80bf 0%, #334155 50%, #475569 100%) !important;
+        }
+        
+        /* Bottom navigation post button with gradient */
+        .btn-nav-post {
+            background: linear-gradient(135deg, #9e80bf 0%, #334155 50%, #475569 100%) !important;
+            border: none !important;
+            box-shadow: 0 4px 12px rgba(158, 128, 191, 0.4) !important;
+        }
+        
+        .btn-nav-post:hover {
+            background: linear-gradient(135deg, #8d6faf 0%, #2d3f52 50%, #3e4d5f 100%) !important;
+            box-shadow: 0 6px 16px rgba(158, 128, 191, 0.5) !important;
+        }
+        
+        /* Text color for gradient backgrounds */
+        .text-primary-content,
+        .text-on-gradient {
+            color: rgba(255, 255, 255, 0.95) !important;
+        }
+        
+        /* Badge with gradient */
+        .badge-primary {
+            background: linear-gradient(135deg, #9e80bf 0%, #334155 50%, #475569 100%) !important;
+            color: rgba(255, 255, 255, 0.95) !important;
+            border: none;
+        }
+        
+        /* Loading spinner color */
+        .text-primary {
+            color: #64748b !important;
+        }
+        
+        /* Border color for gradient elements */
+        .border-primary {
+            border-color: #475569 !important;
+        }
+        
+        .border-primary-content {
+            border-color: rgba(255, 255, 255, 0.3) !important;
+        }
     </style>
     
     <!-- DaisyUI Components -->
@@ -105,8 +154,8 @@
             </svg>
         </button>
             
-        <!-- Generate Post Button (Blue Plus) -->
-        <button class="flex items-center justify-center bg-blue-500 border-none text-white cursor-pointer w-[44px] h-[44px] rounded-full shadow-[0_4px_12px_rgba(59,130,246,0.4)] transition-all duration-200 relative z-10 hover:bg-blue-600 hover:scale-105 hover:shadow-[0_6px_16px_rgba(59,130,246,0.5)] active:scale-95" onclick="window.location.href='/'" title="Generate Post">
+        <!-- Generate Post Button (Gradient Plus) -->
+        <button class="btn-nav-post flex items-center justify-center text-white cursor-pointer w-[44px] h-[44px] rounded-full transition-all duration-200 relative z-10 hover:scale-105 active:scale-95" onclick="window.location.href='/'" title="Generate Post">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
