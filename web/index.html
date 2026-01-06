@@ -627,7 +627,8 @@
 
         async function loadCalendarPosts() {
             try {
-                const response = await fetch(`${API_BASE}/api/posts/pending`);
+                // Get all posts including past published ones for calendar
+                const response = await fetch(`${API_BASE}/api/posts/pending?include_all=true`);
                 const data = await response.json();
                 
                 const eventsContainer = document.getElementById('calendar-events');
@@ -640,9 +641,11 @@
                     const endDate = new Date(selectedDate);
                     endDate.setHours(23, 59, 59, 999);
                     
-                    // Filter posts for the selected day only
+                    // Filter posts for the selected day
                     const filteredPosts = data.posts.filter(post => {
-                        const postDate = new Date(post.created_at);
+                        // Use scheduled_at if available, otherwise use published_at or created_at
+                        const displayDate = post.scheduled_at || post.published_at || post.created_at;
+                        const postDate = new Date(displayDate);
                         return postDate >= startDate && postDate <= endDate;
                     });
                     
@@ -659,14 +662,51 @@
         }
 
         function createEventCard(post) {
-            const postDate = new Date(post.created_at);
-            const topPosition = getTimePosition(post.created_at);
+            // Use scheduled_at if available, otherwise use published_at or created_at
+            const displayDate = post.scheduled_at || post.published_at || post.created_at;
+            const postDate = new Date(displayDate);
+            const topPosition = getTimePosition(displayDate);
             
-            // Format date for header
-            const dateString = postDate.toLocaleDateString('en-US', { 
-                month: 'long', 
-                day: 'numeric' 
-            });
+            // Determine if post is in the past
+            const now = new Date();
+            const isPast = postDate < now;
+            const isScheduled = post.scheduled_at && post.status === 'approved';
+            const isPublished = post.status === 'published';
+            
+            // Determine card color and styling
+            let cardBgClass = 'bg-base-200';
+            let textColorClass = 'text-base-content';
+            let opacityClass = '';
+            
+            if (isPublished) {
+                cardBgClass = 'bg-primary';
+                textColorClass = 'text-primary-content';
+            } else if (isScheduled) {
+                cardBgClass = 'bg-accent';
+                textColorClass = 'text-accent-content';
+            } else if (isPast) {
+                // Grey out past posts
+                opacityClass = 'opacity-50';
+                cardBgClass = 'bg-base-300';
+                textColorClass = 'text-base-content/60';
+            }
+            
+            // Get mode label
+            const modeLabel = post.mode.charAt(0).toUpperCase() + post.mode.slice(1);
+            
+            // Status badge
+            let statusBadge = '';
+            if (isScheduled) {
+                statusBadge = '<span class="badge badge-xs badge-accent ml-2">Scheduled</span>';
+            } else if (isPublished) {
+                statusBadge = '<span class="badge badge-xs badge-primary ml-2">Published</span>';
+            }
+            
+            // Truncate post text for display (use first line or first 50 chars)
+            const postLines = post.post_text.split('\n');
+            const displayText = postLines[0].length > 50 
+                ? postLines[0].substring(0, 50) + '...'
+                : postLines[0];
             
             // Format time for display
             const timeString = postDate.toLocaleTimeString('en-US', { 
@@ -675,25 +715,8 @@
                 hour12: true 
             });
             
-            // Determine card color based on status
-            let cardBgClass = 'bg-base-200';
-            let textColorClass = 'text-base-content';
-            if (post.status === 'approved') {
-                cardBgClass = 'bg-primary';
-                textColorClass = 'text-primary-content';
-            }
-            
-            // Get mode label
-            const modeLabel = post.mode.charAt(0).toUpperCase() + post.mode.slice(1);
-            
-            // Truncate post text for display (use first line or first 50 chars)
-            const postLines = post.post_text.split('\n');
-            const displayText = postLines[0].length > 50 
-                ? postLines[0].substring(0, 50) + '...'
-                : postLines[0];
-            
             const card = document.createElement('div');
-            card.className = `absolute rounded-lg shadow-md p-3 ${cardBgClass} ${textColorClass} cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]`;
+            card.className = `absolute rounded-lg shadow-md p-3 ${cardBgClass} ${textColorClass} ${opacityClass} cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]`;
             // Full width since we're only showing one day
             card.style.left = '0.5%';
             card.style.width = '99%';
@@ -703,7 +726,7 @@
             
             card.innerHTML = `
                 <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs font-medium opacity-80">${modeLabel}</span>
+                    <span class="text-xs font-medium opacity-80">${modeLabel}${statusBadge}</span>
                     <a href="/approve/${post.id}" class="text-xs font-medium opacity-80 hover:opacity-100" onclick="event.stopPropagation()">Details ></a>
                 </div>
                 <h3 class="font-bold text-base mb-1 leading-tight">${escapeHtml(displayText)}</h3>

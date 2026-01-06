@@ -99,7 +99,8 @@ class PostStorage:
         post_id: str,
         status: str,
         thread_id: Optional[str] = None,
-        thread_url: Optional[str] = None
+        thread_url: Optional[str] = None,
+        scheduled_at: Optional[str] = None
     ) -> Optional[Dict]:
         """
         Update post status
@@ -109,6 +110,7 @@ class PostStorage:
             status: New status ('pending', 'approved', 'rejected', 'published')
             thread_id: Optional Threads thread ID if published
             thread_url: Optional Threads URL if published
+            scheduled_at: Optional scheduled datetime (ISO format) for approved posts
             
         Returns:
             Updated post dictionary or None if not found
@@ -119,8 +121,13 @@ class PostStorage:
         
         if status == "approved":
             update_data["approved_at"] = datetime.utcnow().isoformat()
+            # If scheduled_at is provided, set it
+            if scheduled_at:
+                update_data["scheduled_at"] = scheduled_at
         elif status == "published":
             update_data["published_at"] = datetime.utcnow().isoformat()
+            # Clear scheduled_at when published
+            update_data["scheduled_at"] = None
             if thread_id:
                 update_data["thread_id"] = thread_id
             if thread_url:
@@ -162,6 +169,36 @@ class PostStorage:
         if result.data:
             return result.data[0]
         return None
+    
+    def get_scheduled_posts(self) -> List[Dict]:
+        """
+        Get all posts that are scheduled for future publication
+        
+        Returns:
+            List of scheduled post dictionaries
+        """
+        now = datetime.utcnow().isoformat()
+        result = self.supabase.table(self.table_name)\
+            .select("*")\
+            .eq("status", "approved")\
+            .not_.is_("scheduled_at", "null")\
+            .gte("scheduled_at", now)\
+            .order("scheduled_at", desc=False)\
+            .execute()
+        return result.data or []
+    
+    def get_all_posts_for_calendar(self) -> List[Dict]:
+        """
+        Get all posts (pending, approved, published) for calendar display
+        
+        Returns:
+            List of all post dictionaries
+        """
+        result = self.supabase.table(self.table_name)\
+            .select("*")\
+            .order("created_at", desc=True)\
+            .execute()
+        return result.data or []
     
     def delete_post(self, post_id: str) -> bool:
         """

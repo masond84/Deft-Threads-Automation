@@ -326,6 +326,30 @@
                         <div class="flex justify-between items-center mb-4">
                             <span id="char-count" class="text-sm text-base-content/60">${post.post_text.length} characters</span>
                         </div>
+                        ${(post.status === 'pending' || post.status === 'approved') ? `
+                        <div class="divider my-2"></div>
+                        <div class="form-control mb-4">
+                            <label class="label">
+                                <span class="label-text font-semibold">Schedule Post (Optional)</span>
+                            </label>
+                            <input 
+                                type="datetime-local" 
+                                id="schedule-datetime" 
+                                class="input input-bordered"
+                                value="${post.scheduled_at ? new Date(post.scheduled_at).toISOString().slice(0, 16) : ''}"
+                                min="${new Date().toISOString().slice(0, 16)}"
+                            />
+                            <label class="label">
+                                <span class="label-text-alt">Leave empty to publish immediately when approved. Set a date/time to schedule for later.</span>
+                            </label>
+                            ${post.scheduled_at ? `<div class="alert alert-info mt-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Scheduled for: ${new Date(post.scheduled_at).toLocaleString()}</span>
+                            </div>` : ''}
+                        </div>
+                        ` : ''}
                         <div class="card-actions justify-end gap-1">
                             ${actionButtons}
                         </div>
@@ -374,8 +398,20 @@
 
         async function approvePost() {
             try {
+                // Get scheduled datetime if set
+                const scheduleInput = document.getElementById('schedule-datetime');
+                const scheduledAt = scheduleInput && scheduleInput.value 
+                    ? new Date(scheduleInput.value).toISOString() 
+                    : null;
+                
+                const requestBody = scheduledAt ? { scheduled_at: scheduledAt } : {};
+                
                 const response = await fetch(`${API_BASE}/api/posts/${postId}/approve`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
                 });
                 
                 if (!response.ok) {

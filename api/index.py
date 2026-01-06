@@ -110,6 +110,9 @@ class GenerateConnectionRequest(BaseModel):
 class UpdatePostTextRequest(BaseModel):
     post_text: str
 
+class ApproveRequest(BaseModel):
+    scheduled_at: Optional[str] = None  # ISO format datetime string
+
 # Response models
 class PostResponse(BaseModel):
     id: str
@@ -128,6 +131,7 @@ class PostDetailResponse(BaseModel):
     created_at: str
     approved_at: Optional[str] = None
     published_at: Optional[str] = None
+    scheduled_at: Optional[str] = None
     thread_id: Optional[str] = None
     thread_url: Optional[str] = None
     metadata: dict
@@ -375,14 +379,18 @@ async def generate_connection(request: GenerateConnectionRequest):
 
 # Post management endpoints
 @app.get("/api/posts/pending", response_model=PendingPostsResponse)
-async def get_pending_posts():
+async def get_pending_posts(include_all: Optional[bool] = False):
     """Get all pending posts (and approved posts that haven't been published yet)"""
     try:
         storage = get_storage()
-        # Get both pending and approved posts
-        pending = storage.get_pending_posts()
-        approved = storage.get_approved_posts()
-        all_posts = pending + approved
+        if include_all:
+            # For calendar view - get all posts
+            all_posts = storage.get_all_posts_for_calendar()
+        else:
+            # Default behavior - get pending and approved
+            pending = storage.get_pending_posts()
+            approved = storage.get_approved_posts()
+            all_posts = pending + approved
         return PendingPostsResponse(posts=all_posts, count=len(all_posts))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -404,6 +412,7 @@ async def get_post(post_id: str):
             created_at=post["created_at"],
             approved_at=post.get("approved_at"),
             published_at=post.get("published_at"),
+            scheduled_at=post.get("scheduled_at"),
             thread_id=post.get("thread_id"),
             thread_url=post.get("thread_url"),
             metadata=post.get("metadata", {})
@@ -438,6 +447,7 @@ async def update_post_text(post_id: str, request: UpdatePostTextRequest):
             created_at=updated["created_at"],
             approved_at=updated.get("approved_at"),
             published_at=updated.get("published_at"),
+            scheduled_at=updated.get("scheduled_at"),
             thread_id=updated.get("thread_id"),
             thread_url=updated.get("thread_url"),
             metadata=updated.get("metadata", {})
@@ -449,7 +459,7 @@ async def update_post_text(post_id: str, request: UpdatePostTextRequest):
 
 # Approval endpoints
 @app.post("/api/posts/{post_id}/approve", response_model=ApprovalResponse)
-async def approve_post(post_id: str):
+async def approve_post(post_id: str, request: Optional[ApproveRequest] = None):
     """Approve a pending post (or re-approve an approved post)"""
     try:
         storage = get_storage()
@@ -463,8 +473,17 @@ async def approve_post(post_id: str):
         if post["status"] == "rejected":
             raise HTTPException(status_code=400, detail="Cannot approve a rejected post")
         
+        # Get scheduled_at from request if provided
+        scheduled_at = None
+        if request and request.scheduled_at:
+            scheduled_at = request.scheduled_at
+        
         # Allow approving pending posts or re-approving approved posts
-        updated = storage.update_status(post_id, "approved")
+        updated = storage.update_status(
+            post_id, 
+            "approved",
+            scheduled_at=scheduled_at
+        )
         if not updated:
             raise HTTPException(status_code=500, detail="Failed to update post status")
         
@@ -577,6 +596,29 @@ async def publish_post(post_id: str):
     except Exception as e:
         error_msg = str(e) if str(e) else "Unknown error occurred"
         raise HTTPException(status_code=500, detail=f"Error publishing post: {error_msg}")
+
+# Cron endpoint for scheduled posts
+@app.get("/api/cron/publish-scheduled")
+async def cron_publish_scheduled():
+    """
+    Vercel cron endpoint to publish scheduled posts
+    This endpoint should be called by Vercel Cron every 5 minutes
+    Configure in Vercel Dashboard: Project Settings > Cron Jobs
+    """
+    try:
+        from scripts.publish_scheduled_posts import publish_scheduled_posts
+        publish_scheduled_posts()
+        return {
+            "success": True, 
+            "message": "Scheduled posts checked and published if ready"
+        }
+    except Exception as e:
+        # Log error but don't expose details
+        print(f"Error in cron_publish_scheduled: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail="Failed to process scheduled posts"
+        )
 
 # Vercel serverless handler
 # Handler is now exported from api/handler.py for Vercel compatibility
