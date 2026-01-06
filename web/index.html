@@ -245,22 +245,83 @@
 
                 <!-- Briefs Tab -->
                 <div id="tab-briefs" class="hidden">
-                    <div class="form-control mb-4">
-                        <label class="label">
-                            <span class="label-text font-semibold">Status Filter (optional)</span>
-                        </label>
-                        <input type="text" id="briefs-status" placeholder="e.g., Ready" class="input input-bordered" />
-                        <label class="label">
-                            <span class="label-text-alt">Filter Notion briefs by status</span>
-                        </label>
+                    <!-- Collapsible Status Filter -->
+                    <div class="mb-4">
+                        <button
+                            type="button"
+                            onclick="toggleBriefsFilter()"
+                            class="text-xs text-base-content/60 hover:text-base-content/80 flex items-center gap-1 mb-2 transition-all"
+                        >
+                            <svg id="filter-icon" class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                            <span id="filter-toggle-text">Show filter</span>
+                        </button>
+                        <div id="briefs-filter-section" class="hidden">
+                            <div class="form-control mb-3">
+                                <label class="label py-1">
+                                    <span class="label-text text-xs text-base-content/70">Status Filter (optional)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="briefs-status"
+                                    placeholder="e.g., Ready"
+                                    class="input input-bordered input-sm"
+                                />
+                                <label class="label py-1">
+                                    <span class="label-text-alt text-xs text-base-content/50">Filter briefs by status</span>
+                                </label>
+                            </div>
+                            
+                            <div class="form-control mb-3">
+                                <label class="label py-1">
+                                    <span class="label-text text-xs text-base-content/70">Post Type Filter (optional)</span>
+                                </label>
+                                <select
+                                    id="briefs-post-type"
+                                    multiple
+                                    class="select select-bordered select-sm h-24"
+                                    size="3"
+                                >
+                                    <option value="">-- Select post types --</option>
+                                </select>
+                                <label class="label py-1">
+                                    <span class="label-text-alt text-xs text-base-content/50">Hold Ctrl/Cmd to select multiple</span>
+                                </label>
+                            </div>
+                            
+                            <div class="form-control mb-3">
+                                <label class="label py-1">
+                                    <span class="label-text text-xs text-base-content/70">Platform Filter (optional)</span>
+                                </label>
+                                <select
+                                    id="briefs-platform"
+                                    class="select select-bordered select-sm"
+                                >
+                                    <option value="">-- Select platform --</option>
+                                    <option value="Threads">Threads</option>
+                                    <option value="Twitter">Twitter</option>
+                                    <option value="LinkedIn">LinkedIn</option>
+                                    <option value="Instagram">Instagram</option>
+                                    <option value="Facebook">Facebook</option>
+                                </select>
+                                <label class="label py-1">
+                                    <span class="label-text-alt text-xs text-base-content/50">Filter briefs by platform</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- Main Brief Selection -->
                     <div class="form-control mb-4">
                         <label class="label">
-                            <span class="label-text font-semibold">Number of Briefs</span>
+                            <span class="label-text font-semibold">Select Brief</span>
                         </label>
-                        <input type="number" id="briefs-limit" value="1" min="1" max="10" class="input input-bordered" />
+                        <select id="briefs-select" class="select select-bordered w-full">
+                            <option value="">Loading briefs...</option>
+                        </select>
                         <label class="label">
-                            <span class="label-text-alt">Number of briefs to fetch (default: 1)</span>
+                            <span class="label-text-alt">Choose a brief to generate a post from</span>
                         </label>
                     </div>
                     <button class="btn btn-primary btn-block" onclick="generatePost('briefs')">Generate from Briefs</button>
@@ -717,6 +778,113 @@
             selectedTab.classList.remove('hidden');
             selectedTab.classList.add('block');
             element.classList.add('tab-active');
+
+            // Load briefs when switching to briefs tab
+            if (tabName === 'briefs') {
+                loadBriefs();
+            }
+        }
+
+        function toggleBriefsFilter() {
+            const filterSection = document.getElementById('briefs-filter-section');
+            const filterIcon = document.getElementById('filter-icon');
+            const toggleText = document.getElementById('filter-toggle-text');
+
+            if (filterSection.classList.contains('hidden')) {
+                filterSection.classList.remove('hidden');
+                toggleText.textContent = 'Hide filter';
+                filterIcon.style.transform = 'rotate(180deg)';
+            } else {
+                filterSection.classList.add('hidden');
+                toggleText.textContent = 'Show filter';
+                filterIcon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        async function loadBriefs() {
+            const statusFilter = document.getElementById('briefs-status').value.trim();
+            const postTypeSelect = document.getElementById('briefs-post-type');
+            const platformSelect = document.getElementById('briefs-platform');
+            const select = document.getElementById('briefs-select');
+
+            if (!select) return;
+
+            select.innerHTML = '<option value="">Loading briefs...</option>';
+            select.disabled = true;
+
+            try {
+                const params = new URLSearchParams();
+                if (statusFilter) {
+                    params.append('status_filter', statusFilter);
+                }
+                
+                // Get selected post types (multi-select)
+                if (postTypeSelect) {
+                    const selectedPostTypes = Array.from(postTypeSelect.selectedOptions)
+                        .map(option => option.value)
+                        .filter(value => value); // Remove empty values
+                    if (selectedPostTypes.length > 0) {
+                        params.append('post_type', selectedPostTypes.join(','));
+                    }
+                }
+                
+                // Get selected platform
+                if (platformSelect && platformSelect.value) {
+                    params.append('platform', platformSelect.value);
+                }
+                
+                params.append('limit', '50'); // Load up to 50 briefs
+
+                const response = await fetch(`${API_BASE}/api/briefs?${params}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load briefs');
+                }
+
+                const briefs = await response.json();
+
+                if (briefs.length === 0) {
+                    select.innerHTML = '<option value="">No briefs found</option>';
+                } else {
+                    select.innerHTML = '<option value="">-- Select a brief --</option>';
+                    
+                    // Collect unique post types and platforms for filter dropdowns
+                    const uniquePostTypes = new Set();
+                    const uniquePlatforms = new Set();
+                    
+                    briefs.forEach(brief => {
+                        const option = document.createElement('option');
+                        option.value = brief.page_id;
+                        const topic = brief.topic || 'Untitled';
+                        const pillar = brief.pillar ? ` (${brief.pillar})` : '';
+                        const status = brief.status ? ` [${brief.status}]` : '';
+                        option.textContent = `${topic}${pillar}${status}`;
+                        select.appendChild(option);
+                        
+                        // Collect post types and platforms
+                        if (brief.post_type && Array.isArray(brief.post_type)) {
+                            brief.post_type.forEach(pt => uniquePostTypes.add(pt));
+                        }
+                        if (brief.platforms && Array.isArray(brief.platforms)) {
+                            brief.platforms.forEach(p => uniquePlatforms.add(p));
+                        }
+                    });
+                    
+                    // Update post type filter options if not already populated
+                    if (postTypeSelect && postTypeSelect.options.length <= 1) {
+                        uniquePostTypes.forEach(postType => {
+                            const option = document.createElement('option');
+                            option.value = postType;
+                            option.textContent = postType;
+                            postTypeSelect.appendChild(option);
+                        });
+                    }
+                }
+            } catch (error) {
+                select.innerHTML = '<option value="">Error loading briefs</option>';
+                console.error('Error loading briefs:', error);
+            } finally {
+                select.disabled = false;
+            }
         }
 
         async function generatePost(mode) {
@@ -748,9 +916,16 @@
                     }
                 } else if (mode === 'briefs') {
                     endpoint = '/api/generate/briefs';
+                    const briefId = document.getElementById('briefs-select').value;
                     const statusFilter = document.getElementById('briefs-status').value.trim();
-                    const limit = parseInt(document.getElementById('briefs-limit').value) || 1;
-                    requestBody = { limit: limit };
+
+                    if (!briefId) {
+                        statusDiv.className = 'alert alert-error mt-4';
+                        statusDiv.innerHTML = '❌ Please select a brief';
+                        return;
+                    }
+
+                    requestBody = { brief_id: briefId };
                     if (statusFilter) {
                         requestBody.status_filter = statusFilter;
                     }
@@ -802,6 +977,36 @@
         // Initialize calendar on page load
         document.addEventListener('DOMContentLoaded', function() {
             initializeCalendar();
+
+            // Add event listeners to reload briefs when filters change
+            const briefsStatusInput = document.getElementById('briefs-status');
+            const briefsPostTypeSelect = document.getElementById('briefs-post-type');
+            const briefsPlatformSelect = document.getElementById('briefs-platform');
+            
+            // Debounce function for status filter
+            let debounceTimer;
+            if (briefsStatusInput) {
+                briefsStatusInput.addEventListener('input', function() {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        loadBriefs();
+                    }, 500); // Wait 500ms after user stops typing
+                });
+            }
+            
+            // Reload when post type selection changes
+            if (briefsPostTypeSelect) {
+                briefsPostTypeSelect.addEventListener('change', function() {
+                    loadBriefs();
+                });
+            }
+            
+            // Reload when platform selection changes
+            if (briefsPlatformSelect) {
+                briefsPlatformSelect.addEventListener('change', function() {
+                    loadBriefs();
+                });
+            }
         });
 
         // Dynamic messages that change on each reload
@@ -822,23 +1027,33 @@
         async function loadUserInfo() {
             try {
                 const response = await fetch(`${API_BASE}/api/user/info`);
+                if (!response.ok) {
+                    throw new Error('User info endpoint not available');
+                }
                 const userData = await response.json();
                 
-                // Update username
-                const username = userData.username || "User";
-                const displayName = username.charAt(0).toUpperCase() + username.slice(1);
-                document.getElementById('user-name').textContent = displayName;
+                // Update username if element exists
+                const userNameElement = document.getElementById('user-name');
+                if (userNameElement) {
+                    const username = userData.username || "User";
+                    const displayName = username.charAt(0).toUpperCase() + username.slice(1);
+                    userNameElement.textContent = displayName;
+                }
                 
                 // Set dynamic message
-                const randomMessage = dynamicMessages[Math.floor(Math.random() * dynamicMessages.length)];
-                document.getElementById('dynamic-message').textContent = randomMessage;
-                
+                const dynamicMessageElement = document.getElementById('dynamic-message');
+                if (dynamicMessageElement) {
+                    const randomMessage = dynamicMessages[Math.floor(Math.random() * dynamicMessages.length)];
+                    dynamicMessageElement.textContent = randomMessage;
+                }
             } catch (error) {
-                console.error('Error loading user info:', error);
-                document.getElementById('user-name').textContent = "User";
-                // Still set dynamic message even if user info fails
-                const randomMessage = dynamicMessages[Math.floor(Math.random() * dynamicMessages.length)];
-                document.getElementById('dynamic-message').textContent = randomMessage;
+                // Silently fail - just set the dynamic message
+                console.log('User info not available, using default message');
+                const dynamicMessageElement = document.getElementById('dynamic-message');
+                if (dynamicMessageElement) {
+                    const randomMessage = dynamicMessages[Math.floor(Math.random() * dynamicMessages.length)];
+                    dynamicMessageElement.textContent = randomMessage;
+                }
             }
         }
 

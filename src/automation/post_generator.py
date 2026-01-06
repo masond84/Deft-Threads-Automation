@@ -36,6 +36,8 @@ class PostGenerator:
     def fetch_briefs(
         self, 
         status_filter: Optional[str] = None,
+        post_type_filter: Optional[List[str]] = None,
+        platform_filter: Optional[str] = None,
         limit: Optional[int] = None
     ) -> List[Dict]:
         """
@@ -43,6 +45,8 @@ class PostGenerator:
         
         Args:
             status_filter: Filter by status (e.g., "Ready")
+            post_type_filter: Filter by post type(s) - list of post type names
+            platform_filter: Filter by platform (e.g., "Threads")
             limit: Maximum number of briefs to fetch
             
         Returns:
@@ -51,6 +55,8 @@ class PostGenerator:
         # Use the new method that doesn't filter by platform
         return self.notion_client.get_all_briefs(
             status_filter=status_filter,
+            post_type_filter=post_type_filter,
+            platform_filter=platform_filter,
             limit=limit,
             debug=True
         )

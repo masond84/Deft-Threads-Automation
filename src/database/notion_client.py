@@ -111,7 +111,7 @@ class NotionClient:
         
         # Extract Post Type (select field)
         post_type_field = properties.get("Post Type", {})
-        post_type = []
+        post_types = []
         if post_type_field.get("type") == "multi_select":
             post_type_array = post_type_field.get("multi_select", [])
             post_types = [pt.get("name") for pt in post_type_array ]
@@ -138,6 +138,8 @@ class NotionClient:
     def get_all_briefs(
         self, 
         status_filter: Optional[str] = None,
+        post_type_filter: Optional[List[str]] = None,
+        platform_filter: Optional[str] = None,
         limit: Optional[int] = None,
         debug: bool = False
     ) -> List[Dict]:
@@ -146,20 +148,64 @@ class NotionClient:
         
         Args:
             status_filter: Filter by status (e.g., "Ready", "Draft")
+            post_type_filter: Filter by post type(s) - list of post type names
+            platform_filter: Filter by platform (e.g., "Threads")
             limit: Maximum number of briefs to return
             
         Returns:
             List of extracted brief data
         """
-        # Build filter based on status only (no platform filter)
+        # Build filter conditions - combine multiple filters with "and"
         filter_conditions = None
+        filters = []
         
         if status_filter:
-            filter_conditions = {
+            filters.append({
                 "property": "Status",
                 "select": {
                     "equals": status_filter
                 }
+            })
+        
+        if post_type_filter and len(post_type_filter) > 0:
+            # For multiple post types, use "or" condition to match any of them
+            if len(post_type_filter) == 1:
+                # Single post type filter
+                filters.append({
+                    "property": "Post Type",
+                    "multi_select": {
+                        "contains": post_type_filter[0]
+                    }
+                })
+            else:
+                # Multiple post types - use "or" to match any of them
+                post_type_or_filters = [
+                    {
+                        "property": "Post Type",
+                        "multi_select": {
+                            "contains": post_type
+                        }
+                    }
+                    for post_type in post_type_filter
+                ]
+                filters.append({
+                    "or": post_type_or_filters
+                })
+        
+        if platform_filter:
+            filters.append({
+                "property": "Platform",
+                "multi_select": {
+                    "contains": platform_filter
+                }
+            })
+        
+        # Combine filters with "and" if multiple filters exist
+        if len(filters) == 1:
+            filter_conditions = filters[0]
+        elif len(filters) > 1:
+            filter_conditions = {
+                "and": filters
             }
         
         results = self.query_database(filter_conditions=filter_conditions)
@@ -178,7 +224,7 @@ class NotionClient:
                 if topic:
                     briefs.append(brief_data)
                 else:
-                    skipped_no_tipic += 1
+                    skipped_no_topic += 1
                     if debug:
                         print(f"Skipped row(no topic): {brief_data.get('page_id', 'unknown')[:8]}...")
             

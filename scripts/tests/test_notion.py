@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 
 # Add src to path
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
 from database.notion_client import NotionClient  # type: ignore

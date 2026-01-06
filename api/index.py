@@ -4,7 +4,7 @@ Main API entry point for Vercel serverless functions
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
@@ -96,8 +96,9 @@ def get_email():
 
 # Request models
 class GenerateBriefsRequest(BaseModel):
-    limit: int = 5
-    status_filter: Optional[str] = None
+    brief_id: Optional[str] = None # page_id of the brief to use
+    status_filter: Optional[str] = None # Keep for filtering when listing briefs
+    limit: Optional[int] = None # Keep for backward compatibility, but deprecated
 
 class GenerateAnalysisRequest(BaseModel):
     limit: int = 25
@@ -148,6 +149,44 @@ class PublishResponse(BaseModel):
     thread_id: Optional[str] = None
     thread_url: Optional[str] = None
 
+# Brief listing endpoint
+@app.get("/api/briefs")
+async def list_briefs(
+    status_filter: Optional[str] = None,
+    post_type: Optional[str] = None,  # Comma-separated list of post types
+    platform: Optional[str] = None,
+    limit: Optional[int] = 50
+):
+    """List available briefs for selection"""
+    try:
+        generator = get_generator()
+        
+        # Parse post_type if provided (comma-separated string)
+        post_type_filter = None
+        if post_type:
+            post_type_filter = [pt.strip() for pt in post_type.split(",") if pt.strip()]
+        
+        briefs = generator.fetch_briefs(
+            status_filter=status_filter,
+            post_type_filter=post_type_filter,
+            platform_filter=platform,
+            limit=limit
+        )
+        # Return simplified brief info for dropdown
+        return [
+            {
+                "page_id": brief.get("page_id"),
+                "topic": brief.get("topic", "Untitled"),
+                "pillar": brief.get("pillar"),
+                "status": brief.get("status"),
+                "post_type": brief.get("post_type", []),
+                "platforms": brief.get("platforms", [])
+            }
+            for brief in briefs
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Generation endpoints
 @app.post("/api/generate/briefs", response_model=PostResponse)
 async def generate_briefs(request: GenerateBriefsRequest):
@@ -157,15 +196,45 @@ async def generate_briefs(request: GenerateBriefsRequest):
         storage = get_storage()
         email = get_email()
         
-        briefs = generator.fetch_briefs(
-            status_filter=request.status_filter,
-            limit=request.limit
-        )
+        # If brief_id is provided, fetch that specific brief
+        if request.brief_id:
+            # Fetch all briefs and find the one matching the ID
+            # Parse post_type if provided
+            post_type_filter = None
+            if hasattr(request, 'post_type_filter') and request.post_type_filter:
+                post_type_filter = request.post_type_filter if isinstance(request.post_type_filter, list) else [request.post_type_filter]
+            
+            briefs = generator.fetch_briefs(
+                status_filter=request.status_filter,
+                post_type_filter=post_type_filter,
+                platform_filter=getattr(request, 'platform_filter', None),
+                limit=None # Get all to find the specific one
+            )
+            matching_brief = next((b for b in briefs if b.get("page_id") == request.brief_id), None)
+
+            if not matching_brief:
+                raise HTTPException(status_code=404, detail=f"Brief with ID {request.brief_id} not found")
+
+            selected_brief = matching_brief
+        else:
+            # Fallback to old behavior for backward compatibility
+            post_type_filter = None
+            if hasattr(request, 'post_type_filter') and request.post_type_filter:
+                post_type_filter = request.post_type_filter if isinstance(request.post_type_filter, list) else [request.post_type_filter]
+            
+            briefs = generator.fetch_briefs(
+                status_filter=request.status_filter,
+                post_type_filter=post_type_filter,
+                platform_filter=getattr(request, 'platform_filter', None),
+                limit=request.limit or 1
+            )
+
+            if not briefs:
+                raise HTTPException(status_code=404, detail="No briefs found")
+
+            selected_brief = briefs[0]
         
-        if not briefs:
-            raise HTTPException(status_code=404, detail="No briefs found")
-        
-        result = generator.generate_post_for_brief(briefs[0])
+        result = generator.generate_post_for_brief(selected_brief)
         
         if not result.get("valid"):
             raise HTTPException(status_code=400, detail=result.get("error", "Generation failed"))
